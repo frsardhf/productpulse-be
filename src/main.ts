@@ -8,15 +8,15 @@ async function bootstrap() {
   
   // Enable CORS
   app.enableCors({
-    origin: 'http://localhost:3001', // Adjust this to match your frontend URL
+    origin: 'https://productpulse-fe.vercel.app/',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // Optional, if you need to include cookies
+    credentials: true,
   });
 
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, // Strip properties that do not have decorators
-    forbidNonWhitelisted: true, // Return 400 for non-whitelisted properties
-    transform: true, // Automatically transform payloads to DTO instances
+    whitelist: true, 
+    forbidNonWhitelisted: true,
+    transform: true,
   }));
 
 
