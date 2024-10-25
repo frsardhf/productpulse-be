@@ -1,0 +1,8 @@
+{
+  "builds": [
+    {
+      "src": "dist/main.js",
+      "use": "@vercel/node"
+    }
+  ]
+}
