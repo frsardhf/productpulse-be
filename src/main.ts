@@ -8,8 +8,7 @@ async function bootstrap() {
   
   // Enable CORS
   app.enableCors({
-    // origin: 'https://productpulse-fe.vercel.app/',
-    origin: 'http://localhost:3000/',
+    origin: ['https://productpulse-fe.vercel.app', process.env.FRONTEND_URL].filter(Boolean),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -20,17 +19,16 @@ async function bootstrap() {
     transform: true,
   }));
 
-
   // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('Ecommerce Web')
-    .setDescription('This is the API used for the Ecommerce Web.')
+    .setTitle('ProductPulse API')
+    .setDescription('The ProductPulse API description')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
