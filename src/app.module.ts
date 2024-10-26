@@ -19,8 +19,8 @@ import { CartModule } from './cart/cart.module';
     UsersModule, 
     AuthModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60s' },
+      secret: process.env.JWT_SECRET_KEY,
+      signOptions: { expiresIn: '24h' },
     }),
     ProductsModule,
     OrdersModule,

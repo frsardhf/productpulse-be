@@ -8,30 +8,30 @@ async function bootstrap() {
   
   // Enable CORS
   app.enableCors({
-    origin: ['http://localhost:3001', "https://productpulse-fe.vercel.app"],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: ['http://localhost:3001', 'https://productpulse-fe.vercel.app'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, 
+    whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
   }));
 
   // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('Ecommerce Web')
-    .setDescription('This is the API used for the Ecommerce Web.')
+    .setTitle('ProductPulse')
+    .setDescription('This is the API used for the ProductPulse.')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   
-  // Change the path to /api-docs
-  SwaggerModule.setup('api-docs', app, document);
+  SwaggerModule.setup('api', app, document); // Changed back to 'api' for consistency
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
 }
 
 bootstrap();
