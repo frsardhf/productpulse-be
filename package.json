@@ -20,7 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "deploy": "npm run build",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma db push --accept-data-loss && npm run build"
+    "vercel-build": "npm install swagger-ui-dist && prisma generate && prisma db push --accept-data-loss && npm run build"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -42,6 +42,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "swagger-ui-dist": "^5.11.0",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {
