@@ -10,6 +10,7 @@ import { JwtStrategy } from './auth/jwt.strategy';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
 import { CartModule } from './cart/cart.module';
+import { CategoriesModule } from './categories/categories.module';
 import { SwaggerModule } from '@nestjs/swagger';
 
 @Module({
@@ -26,6 +27,7 @@ import { SwaggerModule } from '@nestjs/swagger';
     ProductsModule,
     OrdersModule,
     CartModule,
+    CategoriesModule,
     SwaggerModule
   ],
   controllers: [AppController],

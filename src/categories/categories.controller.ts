@@ -2,7 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
-@ApiTags('categories')  // Add this decorator to group your endpoints
+@ApiTags('categories')
 @Controller('categories')
 export class CategoriesController {
   private prisma = new PrismaClient();
