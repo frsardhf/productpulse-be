@@ -9,8 +9,8 @@ import { CartItemsDto } from './dto/cart-items.dto';
 
 @ApiTags('cart')
 @Controller('cart')
-@UseGuards(JwtAuthGuard) // Protect all routes in this controller
-@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 

@@ -14,7 +14,7 @@ import { CheckoutResponse } from './types/checkout.type'; // Add this import
 
 @ApiTags('orders')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @Controller('orders')
 export class OrdersController {
   constructor(
