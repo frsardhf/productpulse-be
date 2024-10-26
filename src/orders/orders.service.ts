@@ -62,7 +62,6 @@ export class OrdersService {
       throw new NotFoundException(`User with email ${userEmail} not found`);
     }
 
-    // Create the order in the database
     const order = await this.prisma.order.create({
       data: {
         userId: user.id,
@@ -91,26 +90,33 @@ export class OrdersService {
       },
     });
 
-    // Reduce stock for each product in the order
+    const productIds = orderDto.orderItems.map(item => item.productId);
+    const products = await this.prisma.product.findMany({
+        where: { id: { in: productIds } },
+    });
+
+    const updates = [];
     for (const orderItem of orderDto.orderItems) {
-      const product = await this.prisma.product.findUnique({
-          where: { id: orderItem.productId },
-      });
+        const product = products.find(p => p.id === orderItem.productId);
 
-      if (!product) {
-          throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
-      }
+        if (!product) {
+            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
+        }
 
-      if (product.stock < orderItem.quantity) {
-          throw new Error(`Insufficient stock for product ID ${orderItem.productId}`);
-      }
+        if (product.stock < orderItem.quantity) {
+            throw new Error(`Insufficient stock for product ID ${orderItem.productId}`);
+        }
 
-      // Update the product stock
-      await this.prisma.product.update({
-          where: { id: orderItem.productId },
-          data: { stock: product.stock - orderItem.quantity },
-      });
-  }
+        updates.push({
+            where: { id: orderItem.productId },
+            data: { stock: product.stock - orderItem.quantity },
+        });
+    }
+
+    await this.prisma.product.updateMany({
+        where: { id: { in: productIds } },
+        data: updates,
+    });
 
     await this.cartService.clearCart(userEmail);
     
