@@ -13,6 +13,7 @@ import { UsersModule } from 'src/users/users.module';
   providers: [
     OrdersService,
     PrismaService,
+    CartService
   ],
   controllers: [OrdersController],
 })
