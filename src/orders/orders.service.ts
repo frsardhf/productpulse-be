@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderDto } from './dto/order.dto';
@@ -58,70 +58,72 @@ export class OrdersService {
   }
 
   async confirmOrder(orderDto: OrderDto, userEmail: string): Promise<Order> {
-    const user = await this.userService.findUserByEmail(userEmail);
-    if (!user) {
-      throw new NotFoundException(`User with email ${userEmail} not found`);
-    }
+    return this.prisma.$transaction(async (prisma) => {
+      const [user, products] = await Promise.all([
+        this.userService.findUserByEmail(userEmail),
+        prisma.product.findMany({
+          where: { id: { in: orderDto.productsId } },
+          select: { id: true, stock: true }
+        })
+      ]);
 
-    const order = await this.prisma.order.create({
-      data: {
-        userId: user.id,
-        status: orderDto.status,
-        totalPrice: orderDto.totalPrice,
-        shippingAddress: orderDto.shippingAddress,
-        productsId: orderDto.productsId,
-        orderItems: {
-          create: orderDto.orderItems.map(item => ({
-            product: {
-              connect: {
-                id: item.productId,
-              },
-            },
-            quantity: item.quantity,
-            price: new Decimal(item.price),
-          })),
-        },
-      },
-      include: {
-        orderItems: {
-          include: {
-            product: true,
-          },
-        },
-      },
-    });
+      if (!user) {
+        throw new NotFoundException(`User with email ${userEmail} not found`);
+      }
 
-    const productIds = orderDto.orderItems.map(item => item.productId);
-    const products = await this.prisma.product.findMany({
-        where: { id: { in: productIds } },
-    });
+      const stockUpdates = [];
+      const productMap = new Map(products.map(p => [p.id, p]));
 
-    const updates = [];
-    for (const orderItem of orderDto.orderItems) {
-        const product = products.find(p => p.id === orderItem.productId);
-
+      for (const item of orderDto.orderItems) {
+        const product = productMap.get(item.productId);
+        
         if (!product) {
-            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
+          throw new NotFoundException(`Product with ID ${item.productId} not found`);
         }
 
-        if (product.stock < orderItem.quantity) {
-            throw new Error(`Insufficient stock for product ID ${orderItem.productId}`);
+        if (product.stock < item.quantity) {
+          throw new ConflictException(`Insufficient stock for product ID ${item.productId}`);
         }
 
-        updates.push({
-            where: { id: orderItem.productId },
-            data: { stock: product.stock - orderItem.quantity },
-        });
-    }
+        stockUpdates.push(
+          prisma.product.update({
+            where: { id: item.productId },
+            data: { stock: product.stock - item.quantity }
+          })
+        );
+      }
 
-    await this.prisma.product.updateMany({
-        where: { id: { in: productIds } },
-        data: updates,
+      const [order] = await Promise.all([
+        prisma.order.create({
+          data: {
+            userId: user.id,
+            status: orderDto.status,
+            totalPrice: orderDto.totalPrice,
+            shippingAddress: orderDto.shippingAddress,
+            productsId: orderDto.productsId,
+            orderItems: {
+              create: orderDto.orderItems.map(item => ({
+                product: { connect: { id: item.productId } },
+                quantity: item.quantity,
+                price: new Decimal(item.price)
+              }))
+            }
+          },
+          include: {
+            orderItems: {
+              include: { product: true }
+            }
+          }
+        }),
+        ...stockUpdates,
+        this.cartService.clearCart(userEmail)
+      ]);
+
+      return order;
+    }, {
+      timeout: 10000,
+      isolationLevel: 'Serializable'
     });
-
-    await this.cartService.clearCart(userEmail);
-    
-    return order;
   }
 
   async getOrderHistory(userId: number): Promise<Order[]> {
