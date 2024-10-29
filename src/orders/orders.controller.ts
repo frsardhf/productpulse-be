@@ -34,21 +34,7 @@ export class OrdersController {
     @Body() checkoutDto: CheckoutDto,
     @User() user: UserEntity
   ): Promise<Order> {
-    const checkout: CheckoutResponse = await this.ordersService.checkout(user.email);
-    const orderDto: OrderDto = {
-      id: checkout.id,
-      userId: checkout.userId,
-      status: checkout.status,
-      totalPrice: checkout.totalPrice,
-      createdAt: checkout.createdAt,
-      shippingAddress: checkoutDto.shippingAddress,
-      orderItems: checkout.orderItems,
-      productsId: checkout.productsId
-    };
-
-    console.log(orderDto)
-
-    return this.ordersService.confirmOrder(orderDto, user.email);
+    return this.ordersService.confirmOrder(checkoutDto, user.email);
   }
 
   @Get(':userId')
