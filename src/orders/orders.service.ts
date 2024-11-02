@@ -65,18 +65,18 @@ export class OrdersService {
     if (!checkoutState) {
       throw new NotFoundException('Checkout session expired or not found. Please checkout again.');
     }
-    
+  
     const user = await this.userService.findUserByEmail(userEmail);
     if (!user) {
       throw new NotFoundException(`User with email ${userEmail} not found`);
     }
-
+  
     try {
       const order = await this.prisma.$transaction(async (prisma) => {
         const products = await prisma.product.findMany({
           where: { id: { in: checkoutState.productsId } },
         });
-
+  
         for (const orderItem of checkoutState.orderItems) {
           const product = products.find(p => p.id === orderItem.productId);
           if (!product) {
@@ -86,8 +86,21 @@ export class OrdersService {
             throw new Error(`Insufficient stock for product ${orderItem.productId}`);
           }
         }
-
-        const order = await prisma.order.create({
+  
+        await Promise.all(
+          checkoutState.orderItems.map(orderItem =>
+            prisma.product.update({
+              where: { id: orderItem.productId },
+              data: {
+                stock: {
+                  decrement: orderItem.quantity
+                }
+              }
+            })
+          )
+        );
+  
+        const createdOrder = await prisma.order.create({
           data: {
             userId: user.id,
             status: checkoutState.status,
@@ -112,24 +125,13 @@ export class OrdersService {
             },
           },
         });
-
-        for (const orderItem of checkoutState.orderItems) {
-          await prisma.product.update({
-            where: { id: orderItem.productId },
-            data: {
-              stock: {
-                decrement: orderItem.quantity
-              }
-            }
-          });
-        }
-
-        return order;
+  
+        return createdOrder;
       });
-
+  
       await this.cartService.clearCart(userEmail);
       this.checkoutStateService.clearCheckoutState(userEmail);
-
+  
       return order;
     } catch (error) {
       this.checkoutStateService.clearCheckoutState(userEmail);
