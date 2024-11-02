@@ -68,67 +68,76 @@ export class OrdersService {
   
     const user = await this.userService.findUserByEmail(userEmail);
     if (!user) {
-      throw new NotFoundException(`User  with email ${userEmail} not found`);
+      throw new NotFoundException(`User with email ${userEmail} not found`);
     }
   
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: checkoutState.productsId } },
-    });
+    try {
+      const order = await this.prisma.$transaction(async (prisma) => {
+        const products = await prisma.product.findMany({
+          where: { id: { in: checkoutState.productsId } },
+        });
   
-    // Validate stock availability
-    for (const orderItem of checkoutState.orderItems) {
-      const product = products.find(p => p.id === orderItem.productId);
-      if (!product) {
-        throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
-      }
-      if (product.stock < orderItem.quantity) {
-        throw new Error(`Insufficient stock for product ${orderItem.productId}`);
-      }
-    }
+        for (const orderItem of checkoutState.orderItems) {
+          const product = products.find(p => p.id === orderItem.productId);
+          if (!product) {
+            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
+          }
+          if (product.stock < orderItem.quantity) {
+            throw new Error(`Insufficient stock for product ${orderItem.productId}`);
+          }
+        }
   
-    const createdOrder = await this.prisma.order.create({
-      data: {
-        userId: user.id,
-        status: checkoutState.status,
-        totalPrice: checkoutState.totalPrice,
-        shippingAddress: checkoutDto.shippingAddress,
-        productsId: checkoutState.productsId,
-        orderItems: {
-          create: checkoutState.orderItems.map(item => ({
-            product: {
-              connect: { id: item.productId },
+        const [createdOrder] = await Promise.all([
+          prisma.order.create({
+            data: {
+              userId: user.id,
+              status: checkoutState.status,
+              totalPrice: checkoutState.totalPrice,
+              shippingAddress: checkoutDto.shippingAddress,
+              productsId: checkoutState.productsId,
+              orderItems: {
+                create: checkoutState.orderItems.map(item => ({
+                  product: {
+                    connect: { id: item.productId },
+                  },
+                  quantity: item.quantity,
+                  price: new Decimal(item.price),
+                })),
+              },
             },
-            quantity: item.quantity,
-            price: new Decimal(item.price),
-          })),
-        },
-      },
-      include: {
-        orderItems: {
-          include: {
-            product: true,
-          },
-        },
-      },
-    });
+            include: {
+              orderItems: {
+                include: {
+                  product: true,
+                },
+              },
+            },
+          }),
+          ...checkoutState.orderItems.map(orderItem =>
+            prisma.product.update({
+              where: { id: orderItem.productId },
+              data: {
+                stock: {
+                  decrement: orderItem.quantity
+                }
+              }
+            })
+          )
+        ]);
   
-    for (const orderItem of checkoutState.orderItems) {
-      await this.prisma.product.update({
-        where: { id: orderItem.productId },
-        data: {
-          stock: {
-            decrement: orderItem.quantity,
-          },
-        },
+        return createdOrder;
       });
+  
+      await Promise.all([
+        this.cartService.clearCart(userEmail),
+        this.checkoutStateService.clearCheckoutState(userEmail)
+      ]);
+  
+      return order;
+    } catch (error) {
+      this.checkoutStateService.clearCheckoutState(userEmail);
+      throw error;
     }
-  
-    await Promise.all([
-      this.cartService.clearCart(userEmail),
-      this.checkoutStateService.clearCheckoutState(userEmail),
-    ]);
-  
-    return createdOrder;
   }
 
   async getOrderHistory(userId: number): Promise<Order[]> {
