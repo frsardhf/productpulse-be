@@ -8,7 +8,6 @@ export class CheckoutStateService {
   setCheckoutState(userEmail: string, checkout: CheckoutResponse): void {
     this.checkoutState.set(userEmail, checkout);
     
-    // Clear the state after 5 minutes to prevent memory leaks
     setTimeout(() => {
       this.checkoutState.delete(userEmail);
     }, 5 * 60 * 1000);
