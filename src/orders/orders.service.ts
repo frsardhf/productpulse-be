@@ -74,7 +74,15 @@ export class OrdersService {
     try {
       const order = await this.prisma.$transaction(async (prisma) => {
         const products = await prisma.product.findMany({
-          where: { id: { in: checkoutState.productsId } },
+          where: { 
+            id: { 
+              in: checkoutState.productsId 
+            } 
+          },
+          select: {
+            id: true,
+            stock: true
+          }
         });
   
         for (const orderItem of checkoutState.orderItems) {
@@ -86,19 +94,6 @@ export class OrdersService {
             throw new Error(`Insufficient stock for product ${orderItem.productId}`);
           }
         }
-  
-        await Promise.all(
-          checkoutState.orderItems.map(orderItem =>
-            prisma.product.update({
-              where: { id: orderItem.productId },
-              data: {
-                stock: {
-                  decrement: orderItem.quantity
-                }
-              }
-            })
-          )
-        );
   
         const createdOrder = await prisma.order.create({
           data: {
@@ -126,15 +121,36 @@ export class OrdersService {
           },
         });
   
+        for (const orderItem of checkoutState.orderItems) {
+          await prisma.product.update({
+            where: { id: orderItem.productId },
+            data: { 
+              stock: {
+                decrement: orderItem.quantity 
+              }
+            },
+          });
+        }
+  
         return createdOrder;
+      }, {
+        maxWait: 5000,
+        timeout: 10000
       });
   
       await this.cartService.clearCart(userEmail);
       this.checkoutStateService.clearCheckoutState(userEmail);
   
       return order;
+  
     } catch (error) {
       this.checkoutStateService.clearCheckoutState(userEmail);
+      console.error('Order confirmation error:', error);
+      
+      if (error.code === 'P2034') {
+        throw new Error('Transaction timeout. Please try again.');
+      }
+      
       throw error;
     }
   }
