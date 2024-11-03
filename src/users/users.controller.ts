@@ -24,10 +24,21 @@ export class UsersController {
   @Put(':id')
   @ApiResponse({ status: 200, description: 'User  successfully updated.' })
   @ApiResponse({ status: 404, description: 'User  not found.' })
-  async update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto, @User () user: UserEntity) {
-    if (user.id !== id) {
+  @ApiResponse({ status: 403, description: 'Forbidden - Not allowed to update this profile.' })
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @User () user: UserEntity) {
+    console.log('Current user ID:', user.id);
+    console.log('Requested update ID:', id);
+    console.log('User object:', user);
+
+    const userId = parseInt(id, 10);
+    if (isNaN(userId)) {
+      throw new ForbiddenException('Invalid user ID');
+    }
+
+    if (user.id !== userId) {
       throw new ForbiddenException('You are not allowed to update this user profile');
     }
-    return this.usersService.updateUser (+id, updateUserDto);
+
+    return this.usersService.updateUser(userId, updateUserDto);
   }
 }

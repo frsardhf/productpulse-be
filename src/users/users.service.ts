@@ -42,21 +42,23 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const updates: any = {};
+    
+    if (data.name) updates.name = data.name;
+    if (data.email) updates.email = data.email;
     if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
-    }
-
-    if ('role' in data) {
-      throw new BadRequestException('Property role should not exist');
+      updates.password = await bcrypt.hash(data.password, 10);
     }
 
     return this.prisma.user.update({
       where: { id },
-      data: {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      },
+      data: updates,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      }
     });
   }
 }
