@@ -20,12 +20,11 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @Put(':id')
   @ApiResponse({ status: 200, description: 'User  successfully updated.' })
   @ApiResponse({ status: 404, description: 'User  not found.' })
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @User () user: UserEntity) {
-    // Check if the user is trying to update their own profile
     if (user.id !== +id) {
       throw new ForbiddenException('You are not allowed to update this user profile');
     }

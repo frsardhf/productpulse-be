@@ -42,7 +42,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // If a password is provided in the update, hash it
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }

@@ -1,9 +1,6 @@
-// src/orders/orders.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { OrderDto } from './dto/order.dto';
-import { User } from 'src/types/user.interface';
 import { CheckoutDto } from './dto/checkout.dto';
 import { Order } from '@prisma/client';
 import { CartService } from '../cart/cart.service'; 
@@ -280,7 +277,7 @@ export class OrdersService {
   async getOrderHistory(userId: number): Promise<Order[]> {
     return this.prisma.order.findMany({
       where: { userId },
-      include: { orderItems: true }, // Include order items if needed
+      include: { orderItems: true },
     });
   }
 
@@ -293,7 +290,7 @@ export class OrdersService {
 
   async getAllOrders(): Promise<Order[]> {
     return this.prisma.order.findMany({
-      include: { orderItems: true }, // Include order items if needed
+      include: { orderItems: true },
     });
   }
 }
