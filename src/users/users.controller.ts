@@ -24,8 +24,8 @@ export class UsersController {
   @Put(':id')
   @ApiResponse({ status: 200, description: 'User  successfully updated.' })
   @ApiResponse({ status: 404, description: 'User  not found.' })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @User () user: UserEntity) {
-    if (user.id !== +id) {
+  async update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto, @User () user: UserEntity) {
+    if (user.id !== id) {
       throw new ForbiddenException('You are not allowed to update this user profile');
     }
     return this.usersService.updateUser (+id, updateUserDto);
