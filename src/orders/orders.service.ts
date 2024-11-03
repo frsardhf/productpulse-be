@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderDto } from './dto/order.dto';
+import { User } from 'src/types/user.interface';
 import { CheckoutDto } from './dto/checkout.dto';
 import { Order } from '@prisma/client';
 import { CartService } from '../cart/cart.service'; 
@@ -58,6 +59,127 @@ export class OrdersService {
     this.checkoutStateService.setCheckoutState(userEmail, checkoutResponse);
 
     return checkoutResponse;
+  }
+
+  async validateInventory(
+    userEmail: string
+  ): Promise<CheckoutResponse> {
+    const checkoutState = this.checkoutStateService.getCheckoutState(userEmail);
+    if (!checkoutState) {
+      throw new NotFoundException('Checkout session expired or not found. Please checkout again.');
+    }
+  
+    const user = await this.userService.findUserByEmail(userEmail);
+    if (!user) {
+      throw new NotFoundException(`User with email ${userEmail} not found`);
+    }
+  
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        const products = await prisma.product.findMany({
+          where: {
+            id: {
+              in: checkoutState.productsId
+            }
+          },
+          select: {
+            id: true,
+            stock: true
+          }
+        });
+  
+        for (const orderItem of checkoutState.orderItems) {
+          const product = products.find(p => p.id === orderItem.productId);
+          if (!product) {
+            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
+          }
+          if (product.stock < orderItem.quantity) {
+            throw new Error(`Insufficient stock for product ${orderItem.productId}`);
+          }
+        }
+  
+        for (const orderItem of checkoutState.orderItems) {
+          await prisma.product.update({
+            where: { id: orderItem.productId },
+            data: {
+              stock: {
+                decrement: orderItem.quantity
+              }
+            },
+          });
+        }
+      }, {
+        maxWait: 5000,
+        timeout: 10000
+      });
+      
+      this.checkoutStateService.setCheckoutState(userEmail, checkoutState);
+      return checkoutState;
+    } catch (error) {
+      this.checkoutStateService.clearCheckoutState(userEmail);
+      console.error('Inventory validation error:', error);
+  
+      if (error.code === 'P2034') {
+        throw new Error('Transaction timeout. Please try again.');
+      }
+  
+      throw error;
+    }
+  }
+
+  async createOrder(checkoutDto: CheckoutDto, userEmail: string): Promise<Order> {
+    try {
+      const user = await this.userService.findUserByEmail(userEmail);
+      const checkoutState = this.checkoutStateService.getCheckoutState(userEmail);
+  
+      const order = await this.prisma.$transaction(async (prisma) => {
+        const createdOrder = await prisma.order.create({
+          data: {
+            userId: user.id,
+            status: checkoutState.status,
+            totalPrice: checkoutState.totalPrice,
+            shippingAddress: checkoutDto.shippingAddress,
+            productsId: checkoutState.productsId,
+            orderItems: {
+              create: checkoutState.orderItems.map(item => ({
+                product: {
+                  connect: { id: item.productId },
+                },
+                quantity: item.quantity,
+                price: new Decimal(item.price),
+              })),
+            },
+          },
+          include: {
+            orderItems: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        });
+  
+        return createdOrder;
+      }, {
+        maxWait: 5000,
+        timeout: 10000
+      });
+  
+      await this.cartService.clearCart(userEmail);
+      this.checkoutStateService.clearCheckoutState(userEmail);
+  
+      return order;
+  
+    } catch (error) {
+      this.checkoutStateService.clearCheckoutState(userEmail);
+      console.error('Order creation error:', error);
+  
+      if (error.code === 'P2034') {
+        throw new Error('Transaction timeout. Please try again.');
+      }
+  
+      throw error;
+    }
   }
 
   async confirmOrder(checkoutDto: CheckoutDto, userEmail: string): Promise<Order> {

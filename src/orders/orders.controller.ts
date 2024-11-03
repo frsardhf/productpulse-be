@@ -10,7 +10,7 @@ import { User } from '../auth/decorators/user.decorator';
 import { UserEntity } from '../users/users.entity';
 import { CartService } from '../cart/cart.service';
 import { CheckoutDto } from './dto/checkout.dto';
-import { CheckoutResponse } from './types/checkout.type'; // Add this import
+import { CheckoutResponse } from './types/checkout.type';
 
 @ApiTags('orders')
 @UseGuards(JwtAuthGuard)
@@ -26,6 +26,21 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Checkout details retrieved successfully.' })
   async checkout(@User() user: UserEntity): Promise<CheckoutResponse> {
     return this.ordersService.checkout(user.email);
+  }
+
+  @Post('validate')
+  @ApiResponse({ status: 201, description: 'Order validated successfully.' })
+  async validateInventory(@User() user: UserEntity): Promise<CheckoutResponse> {
+    return this.ordersService.validateInventory(user.email);
+  }
+
+  @Post('create')
+  @ApiResponse({ status: 201, description: 'Order created successfully.' })
+  async createOrder(
+    @Body() checkoutDto: CheckoutDto,
+    @User() user: UserEntity
+  ): Promise<Order> {
+    return this.ordersService.createOrder(checkoutDto, user.email);
   }
 
   @Post('confirm')
