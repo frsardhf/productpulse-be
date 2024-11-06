@@ -7,21 +7,18 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  // Enable CORS with your existing configuration
   app.enableCors({
-    origin: ['http://localhost:3001', 'https://productpulse-fe.vercel.app'],
+    origin: ['http://localhost:3001', 'https://productpulse.vercel.app'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  // Global Validation Pipe with your existing configuration
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
   }));
 
-  // Enhanced Swagger setup
   const config = new DocumentBuilder()
     .setTitle('ProductPulse')
     .setDescription('This is the API used for the ProductPulse.')
@@ -41,7 +38,6 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
 
-  // Updated Swagger UI setup with CDN links
   SwaggerModule.setup('api', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
@@ -59,7 +55,6 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
   
-  // Log the application URL
   console.log(`Application is running on: ${await app.getUrl()}`);
   console.log(`Swagger documentation available at: ${await app.getUrl()}/api`);
 }
