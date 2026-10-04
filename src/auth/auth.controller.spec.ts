@@ -6,7 +6,6 @@ import { UnauthorizedException } from '@nestjs/common';
 
 describe('AuthController', () => {
   let authController: AuthController;
-  let authService: AuthService;
 
   const mockAuthService = {
     validateUser: jest.fn(),

@@ -5,8 +5,6 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductDto } from './dto/product.dto';
 import { AdminGuard } from '../guards/admin.guard';
 import { ApiTags, ApiResponse, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { User } from '../auth/decorators/user.decorator';
-import { UserEntity } from '../users/users.entity';
 
 @ApiTags('products')
 @Controller('products')
@@ -20,8 +18,7 @@ export class ProductsController {
   @ApiResponse({ status: 201, description: 'The product has been successfully created.', type: ProductDto })
   @ApiResponse({ status: 401, description: 'Unauthorized - User not authenticated' })
   @ApiResponse({ status: 403, description: 'Forbidden - User is not an admin' })
-  async create(@Body() createProductDto: CreateProductDto, @User() user: UserEntity): Promise<ProductDto> {
-    console.log('Authenticated User:', user);
+  async create(@Body() createProductDto: CreateProductDto): Promise<ProductDto> {
     return this.productsService.create(createProductDto);
   }
 
@@ -35,10 +32,8 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found.' })
   async update(
     @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
-    @User() user: UserEntity
+    @Body() updateProductDto: UpdateProductDto
   ): Promise<ProductDto> {
-    console.log('Authenticated User:', user);
     return this.productsService.update(+id, updateProductDto);
   }
 
@@ -51,8 +46,7 @@ export class ProductsController {
   @ApiResponse({ status: 401, description: 'Unauthorized - User not authenticated' })
   @ApiResponse({ status: 403, description: 'Forbidden - User is not an admin' })
   @ApiResponse({ status: 404, description: 'Product not found.' })
-  async delete(@Param('id') id: string, @User() user: UserEntity): Promise<void> {
-    console.log('Authenticated User:', user);
+  async delete(@Param('id') id: string): Promise<void> {
     await this.productsService.delete(+id);
   }
 

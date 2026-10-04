@@ -4,8 +4,8 @@ import { OrdersService } from './orders.service';
 import { CheckoutStateService } from './orders-state.service';
 import { OrdersController } from './orders.controller';
 import { PrismaService } from '../prisma.service';
-import { CartModule } from 'src/cart/cart.module';
-import { UsersModule } from 'src/users/users.module';
+import { CartModule } from '../cart/cart.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [

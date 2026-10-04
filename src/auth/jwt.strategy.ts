@@ -3,40 +3,31 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { AuthenticatedUser, JwtPayload } from './types/authenticated-user.type';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly usersService: UsersService;
-  private readonly configService: ConfigService;
-  private userCache: { [key: string]: any } = {};
-
-  constructor(usersService: UsersService, configService: ConfigService) {
+  constructor(
+    private readonly usersService: UsersService,
+    configService: ConfigService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: configService.get<string>('JWT_SECRET_KEY'),
     });
-    this.usersService = usersService;
-    this.configService = configService;
   }
 
-  async validate(payload: any) {
-    const userId = payload.sub;
-    if (this.userCache[userId]) {
-      return this.userCache[userId];
-    }
-
-    const user = await this.usersService.findUserByEmail(payload.email);
+  async validate(payload: JwtPayload): Promise<AuthenticatedUser | null> {
+    const user = await this.usersService.findUserById(payload.sub);
     if (!user) {
-      return null; // If user not found, return null
+      return null;
     }
 
-    this.userCache[userId] = {
-      userId: payload.sub,
-      username: payload.name,
-      role: payload.role,
-      email: payload.email,
+    return {
+      userId: user.id,
+      name: user.name,
+      role: user.role,
+      email: user.email,
     };
-
-    return this.userCache[userId];
   }
 }

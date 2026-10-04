@@ -1,98 +1,62 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Role } from '@prisma/client';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto } from './dto/create-order.dto';
 
 describe('OrdersController', () => {
-  let ordersController: OrdersController;
-  let ordersService: OrdersService;
+  let controller: OrdersController;
 
-  const mockOrdersService = {
-    create: jest.fn(),
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
+  const ordersService = {
+    getAllOrders: jest.fn(),
+    getOrderHistory: jest.fn(),
+    updateOrderStatus: jest.fn(),
+  };
+
+  const authenticatedUser: AuthenticatedUser = {
+    userId: 7,
+    name: 'Test User',
+    email: 'test@example.com',
+    role: Role.USER,
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrdersController],
-      providers: [
-        { provide: OrdersService, useValue: mockOrdersService },
-      ],
+      providers: [{ provide: OrdersService, useValue: ordersService }],
     }).compile();
 
-    ordersController = module.get<OrdersController>(OrdersController);
-    ordersService = module.get<OrdersService>(OrdersService);
+    controller = module.get(OrdersController);
   });
 
-  it('should be defined', () => {
-    expect(ordersController).toBeDefined();
+  it('loads order history for the authenticated user only', async () => {
+    const orders = [{ id: 1, userId: authenticatedUser.userId }];
+    ordersService.getOrderHistory.mockResolvedValue(orders);
+
+    await expect(
+      controller.getOrderHistory(authenticatedUser),
+    ).resolves.toEqual(orders);
+    expect(ordersService.getOrderHistory).toHaveBeenCalledWith(
+      authenticatedUser.userId,
+    );
   });
 
-  describe('create', () => {
-    it('should create an order and return it', async () => {
-      const createdAt = new Date().toISOString();
-      const createOrderDto: CreateOrderDto = {
-        userId: 1,
-        productsId: [1, 2],
-        status: 'pending',
-        totalPrice: 20, 
-        createdAt: new Date(createdAt)
-      };
-      const createdOrder = { id: 1, ...createOrderDto };
+  it('delegates the admin order listing contract', async () => {
+    const orders = [{ id: 1, userId: 7 }];
+    ordersService.getAllOrders.mockResolvedValue(orders);
 
-      mockOrdersService.create.mockResolvedValue(createdOrder);
-
-      const result = await ordersController.create(createOrderDto);
-      expect(result).toEqual(createdOrder);
-      expect(mockOrdersService.create).toHaveBeenCalledWith(createOrderDto);
-    });
+    await expect(controller.getAllOrders()).resolves.toEqual(orders);
   });
 
-  describe('findAll', () => {
-    it('should return an array of orders', async () => {
-      const orders = [{ id: 1, userId: 1, productIds: [1], status: 'pending' }];
-      mockOrdersService.findAll.mockResolvedValue(orders);
+  it('delegates the admin order-status update contract', async () => {
+    const update = { status: 'shipped' };
+    const order = { id: 1, ...update };
+    ordersService.updateOrderStatus.mockResolvedValue(order);
 
-      const result = await ordersController.findAll();
-      expect(result).toEqual(orders);
-      expect(mockOrdersService.findAll).toHaveBeenCalled();
-    });
-  });
-
-  describe('findOne', () => {
-    it('should return an order by id', async () => {
-      const order = { id: 1, userId: 1, productIds: [1], status: 'pending' };
-      mockOrdersService.findOne.mockResolvedValue(order);
-
-      const result = await ordersController.findOne('1');
-      expect(result).toEqual(order);
-      expect(mockOrdersService.findOne).toHaveBeenCalledWith(1);
-    });
-  });
-
-  describe('update', () => {
-    it('should update an order and return it', async () => {
-      const updateOrderDto = { status: 'completed' };
-      const updatedOrder = { id: 1, userId: 1, productIds: [1], status: 'completed' };
-
-      mockOrdersService.update.mockResolvedValue(updatedOrder);
-
-      const result = await ordersController.update('1', updateOrderDto);
-      expect(result).toEqual(updatedOrder);
-      expect(mockOrdersService.update).toHaveBeenCalledWith(1, updateOrderDto);
-    });
-  });
-
-  describe('delete', () => {
-    it('should delete an order by id', async () => {
-      mockOrdersService.delete.mockResolvedValue(undefined);
-
-      const result = await ordersController.delete('1');
-      expect(result).toBeUndefined();
-      expect(mockOrdersService.delete).toHaveBeenCalledWith(1);
-    });
+    await expect(controller.updateOrderStatus(1, update)).resolves.toEqual(
+      order,
+    );
+    expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(1, update);
   });
 });

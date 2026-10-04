@@ -6,7 +6,6 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 describe('ProductsController', () => {
   let productsController: ProductsController;
-  let productsService: ProductsService;
 
   const mockProductsService = {
     create: jest.fn(),
@@ -25,7 +24,6 @@ describe('ProductsController', () => {
     }).compile();
 
     productsController = module.get<ProductsController>(ProductsController);
-    productsService = module.get<ProductsService>(ProductsService);
   });
 
   it('should be defined', () => {

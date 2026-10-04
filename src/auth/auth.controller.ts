@@ -1,7 +1,6 @@
 import { Body, Controller, Post, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { LogoutDto } from './dto/logout.dto';
 import { ApiTags, ApiResponse, ApiBearerAuth, ApiBadRequestResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwtauth.guard';
 
@@ -32,7 +31,7 @@ export class AuthController {
   @Post('logout')
   @ApiResponse({ status: 200, description: 'Successfully logged out' })
   @ApiBadRequestResponse({ description: 'Bad request, validation error' })
-  async logout(@Body() logoutDto: LogoutDto) {
-    return this.authService.logout(logoutDto);
+  logout() {
+    return this.authService.logout();
   }
 }

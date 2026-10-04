@@ -1,84 +1,66 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrdersService } from './orders.service';
+import { CartService } from '../cart/cart.service';
 import { PrismaService } from '../prisma.service';
+import { UsersService } from '../users/users.service';
+import { CheckoutStateService } from './orders-state.service';
+import { OrdersService } from './orders.service';
 
 describe('OrdersService', () => {
   let ordersService: OrdersService;
 
-  const mockPrismaService = {
+  const prisma = {
     order: {
-      create: jest.fn(),
       findMany: jest.fn(),
-      findUnique: jest.fn(),
       update: jest.fn(),
-      delete: jest.fn(),
     },
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrismaService, useValue: prisma },
+        { provide: CartService, useValue: {} },
+        { provide: UsersService, useValue: {} },
+        { provide: CheckoutStateService, useValue: {} },
       ],
     }).compile();
 
-    ordersService = module.get<OrdersService>(OrdersService);
+    ordersService = module.get(OrdersService);
   });
 
-  it('should be defined', () => {
-    expect(ordersService).toBeDefined();
-  });
+  it('scopes order history to the supplied authenticated user ID', async () => {
+    const orders = [{ id: 1, userId: 7 }];
+    prisma.order.findMany.mockResolvedValue(orders);
 
-  it('should create an order', async () => {
-    const createdAt = new Date().toISOString();
-    const orderData = { userId: 1, productsId: [1, 2], status: 'pending',
-      totalPrice: 20, createdAt: new Date(createdAt)
-     };
-    mockPrismaService.order.create.mockResolvedValue(orderData);
-
-    const result = await ordersService.create(orderData);
-    expect(result).toEqual(orderData);
-    expect(mockPrismaService.order.create).toHaveBeenCalledWith({ data: orderData });
-  });
-
-  it('should find all orders', async () => {
-    const orders = [{ id: 1, userId: 1, status: 'pending' }];
-    mockPrismaService.order.findMany.mockResolvedValue(orders);
-
-    const result = await ordersService.findAll();
-    expect(result).toEqual(orders);
-    expect(mockPrismaService.order.findMany).toHaveBeenCalled();
-  });
-
-  it('should find an order by id', async () => {
-    const order = { id: 1, userId: 1, status: 'pending' };
-    mockPrismaService.order.findUnique.mockResolvedValue(order);
-
-    const result = await ordersService.findOne(1);
-    expect(result).toEqual(order);
-    expect(mockPrismaService.order.findUnique).toHaveBeenCalledWith({ where: { id: 1 } });
-  });
-
-  it('should update an order', async () => {
-    const orderData = { status: 'completed' };
-    const updatedOrder = { id: 1, userId: 1, ...orderData };
-    mockPrismaService.order.update.mockResolvedValue(updatedOrder);
-
-    const result = await ordersService.update(1, orderData);
-    expect(result).toEqual(updatedOrder);
-    expect(mockPrismaService.order.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: orderData,
+    await expect(ordersService.getOrderHistory(7)).resolves.toEqual(orders);
+    expect(prisma.order.findMany).toHaveBeenCalledWith({
+      where: { userId: 7 },
+      include: { orderItems: true },
     });
   });
 
-  it('should delete an order', async () => {
-    const orderId = 1;
-    mockPrismaService.order.delete.mockResolvedValue({ id: orderId });
+  it('loads all orders for the admin contract', async () => {
+    const orders = [{ id: 1 }, { id: 2 }];
+    prisma.order.findMany.mockResolvedValue(orders);
 
-    const result = await ordersService.delete(orderId);
-    expect(result).toEqual({ id: orderId });
-    expect(mockPrismaService.order.delete).toHaveBeenCalledWith({ where: { id: orderId } });
+    await expect(ordersService.getAllOrders()).resolves.toEqual(orders);
+    expect(prisma.order.findMany).toHaveBeenCalledWith({
+      include: { orderItems: true },
+    });
+  });
+
+  it('updates an order status for the admin contract', async () => {
+    const order = { id: 1, status: 'shipped' };
+    prisma.order.update.mockResolvedValue(order);
+
+    await expect(
+      ordersService.updateOrderStatus(1, { status: 'shipped' }),
+    ).resolves.toEqual(order);
+    expect(prisma.order.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { status: 'shipped' },
+    });
   });
 });

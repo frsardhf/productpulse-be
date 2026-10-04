@@ -60,6 +60,7 @@ describe('ProductsService', () => {
           name: createProductDto.name,
           description: createProductDto.description,
           price: createProductDto.price,
+          stock: createProductDto.stock,
           categoryId: createProductDto.categoryId,
         },
       });
@@ -94,6 +95,7 @@ describe('ProductsService', () => {
       const productId = 1;
       const updateProductDto: UpdateProductDto = { name: 'Updated Product' };
       const updatedProduct = { id: productId, ...updateProductDto };
+      mockPrismaService.product.findUnique.mockResolvedValue({ id: productId, name: 'Product' });
       
       mockPrismaService.product.update.mockResolvedValue(updatedProduct);
 
@@ -111,10 +113,11 @@ describe('ProductsService', () => {
       const productId = 1;
       const deletedProduct = { id: productId, name: 'Deleted Product' };
 
+      mockPrismaService.product.findUnique.mockResolvedValue(deletedProduct);
       mockPrismaService.product.delete.mockResolvedValue(deletedProduct);
 
       const result = await productsService.delete(productId);
-      expect(result).toEqual(deletedProduct);
+      expect(result).toBeUndefined();
       expect(mockPrismaService.product.delete).toHaveBeenCalledWith({ where: { id: productId } });
     });
   });

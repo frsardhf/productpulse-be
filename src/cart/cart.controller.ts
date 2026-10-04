@@ -21,7 +21,6 @@ export class CartController {
   @ApiResponse({ status: 500, description: 'Internal server error.' })
   async addCartItem(@Body() createCartItemDto: CreateCartItemDto, @User() user: any) {
     try {
-      console.log('Authenticated User:', user);
       const userEmail = user.email;
       const { productId, quantity } = createCartItemDto;
       return await this.cartService.addCartItem(userEmail, productId, quantity);
