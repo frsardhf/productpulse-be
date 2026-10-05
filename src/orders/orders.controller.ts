@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../guards/jwtauth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CheckoutDto } from './dto/checkout.dto';
-import { CheckoutResponse } from './types/checkout.type';
+import { OrderWithItems } from './types/order-with-items.type';
 
 @ApiTags('orders')
 @UseGuards(JwtAuthGuard)
@@ -27,37 +27,14 @@ export class OrdersController {
 
   @Post('checkout')
   @ApiResponse({
-    status: 200,
-    description: 'Checkout details retrieved successfully.',
+    status: 201,
+    description: 'Simulated order created successfully.',
   })
-  async checkout(@User() user: AuthenticatedUser): Promise<CheckoutResponse> {
-    return this.ordersService.checkout(user.email);
-  }
-
-  @Post('validate')
-  @ApiResponse({ status: 201, description: 'Order validated successfully.' })
-  async validateInventory(
-    @User() user: AuthenticatedUser,
-  ): Promise<CheckoutResponse> {
-    return this.ordersService.validateInventory(user.email);
-  }
-
-  @Post('create')
-  @ApiResponse({ status: 201, description: 'Order created successfully.' })
-  async createOrder(
+  async checkout(
     @Body() checkoutDto: CheckoutDto,
     @User() user: AuthenticatedUser,
-  ): Promise<Order> {
-    return this.ordersService.createOrder(checkoutDto, user.email);
-  }
-
-  @Post('confirm')
-  @ApiResponse({ status: 201, description: 'Order created successfully.' })
-  async confirmOrder(
-    @Body() checkoutDto: CheckoutDto,
-    @User() user: AuthenticatedUser,
-  ): Promise<Order> {
-    return this.ordersService.confirmOrder(checkoutDto, user.email);
+  ): Promise<OrderWithItems> {
+    return this.ordersService.checkout(user.userId, checkoutDto);
   }
 
   @Get('history')

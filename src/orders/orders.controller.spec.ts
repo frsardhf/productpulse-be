@@ -8,6 +8,7 @@ describe('OrdersController', () => {
   let controller: OrdersController;
 
   const ordersService = {
+    checkout: jest.fn(),
     getAllOrders: jest.fn(),
     getOrderHistory: jest.fn(),
     updateOrderStatus: jest.fn(),
@@ -28,6 +29,23 @@ describe('OrdersController', () => {
     }).compile();
 
     controller = module.get(OrdersController);
+  });
+
+  it('creates an order for the authenticated user with one checkout call', async () => {
+    const checkoutDto = {
+      shippingAddress: '123 Main Street, Jakarta',
+      idempotencyKey: '7ca1d688-83d4-4ac2-a71a-6cbe35b20d9f',
+    };
+    const order = { id: 10, userId: authenticatedUser.userId };
+    ordersService.checkout.mockResolvedValue(order);
+
+    await expect(
+      controller.checkout(checkoutDto, authenticatedUser),
+    ).resolves.toEqual(order);
+    expect(ordersService.checkout).toHaveBeenCalledWith(
+      authenticatedUser.userId,
+      checkoutDto,
+    );
   });
 
   it('loads order history for the authenticated user only', async () => {

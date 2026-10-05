@@ -1,287 +1,216 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import { Order, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
-import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderStatus } from '../enums/order-status.enum';
 import { CheckoutDto } from './dto/checkout.dto';
-import { Order } from '@prisma/client';
-import { CartService } from '../cart/cart.service'; 
-import { UsersService } from '../users/users.service';
-import { CheckoutStateService } from './orders-state.service';
-import { Decimal } from '@prisma/client/runtime/library';
-import { CheckoutResponse, CheckoutItem } from './types/checkout.type';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderWithItems } from './types/order-with-items.type';
+
+const ORDER_WITH_ITEMS = { orderItems: true } as const;
+const MAX_TRANSACTION_ATTEMPTS = 3;
+
+interface CheckoutLine {
+  productId: number;
+  productName: string;
+  quantity: number;
+  price: Prisma.Decimal;
+}
+
+type CartRow = Prisma.CartItemGetPayload<{
+  include: { product: true };
+}>;
 
 @Injectable()
 export class OrdersService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly cartService: CartService,
-    private readonly userService: UsersService,
-    private readonly checkoutStateService: CheckoutStateService
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async checkout(userEmail: string): Promise<CheckoutResponse> {
-    const user = await this.userService.findUserByEmail(userEmail);
-    if (!user) {
-      throw new NotFoundException(`User with email ${userEmail} not found`);
+  async checkout(
+    userId: number,
+    checkoutDto: CheckoutDto,
+  ): Promise<OrderWithItems> {
+    for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          (transaction) =>
+            this.createOrderFromCart(transaction, userId, checkoutDto),
+          { maxWait: 5000, timeout: 10000 },
+        );
+      } catch (error: unknown) {
+        const existingOrder = await this.findByIdempotencyKey(
+          userId,
+          checkoutDto.idempotencyKey,
+        );
+        if (existingOrder) {
+          return existingOrder;
+        }
+
+        const retryable =
+          this.isPrismaError(error, 'P2002') ||
+          this.isPrismaError(error, 'P2034');
+        if (retryable && attempt < MAX_TRANSACTION_ATTEMPTS) {
+          continue;
+        }
+        if (retryable) {
+          throw new ConflictException(
+            'Checkout conflicted with another request. Retry with the same idempotency key.',
+          );
+        }
+
+        throw error;
+      }
     }
 
-    const cartItems = await this.cartService.getUserCart(userEmail);
-    if (cartItems.length === 0) {
-      throw new NotFoundException('No items in the cart to checkout');
-    }
-
-    const orderItems: CheckoutItem[] = cartItems.map(item => ({
-      productId: item.id,
-      name: item.name,
-      description: item.description,  
-      quantity: item.quantity,
-      price: item.price,
-      categoryId: item.categoryId,
-      stock: item.stock
-    }));
-
-    const productsId: number[] = cartItems.map(item => item.id);
-    const totalPrice = await this.cartService.getTotalPrice(userEmail);
-
-    const checkoutResponse: CheckoutResponse = {
-      id: Math.floor(Math.random() * 1000), 
-      userId: user.id,
-      status: 'Pending',
-      totalPrice: new Decimal(totalPrice),
-      createdAt: new Date(),
-      productsId: productsId,
-      shippingAddress: '', 
-      orderItems: orderItems 
-    };
-
-    this.checkoutStateService.setCheckoutState(userEmail, checkoutResponse);
-
-    return checkoutResponse;
+    throw new ConflictException(
+      'Checkout could not be completed. Retry with the same idempotency key.',
+    );
   }
 
-  async validateInventory(
-    userEmail: string
-  ): Promise<CheckoutResponse> {
-    const checkoutState = this.checkoutStateService.getCheckoutState(userEmail);
-    if (!checkoutState) {
-      throw new NotFoundException('Checkout session expired or not found. Please checkout again.');
+  private async createOrderFromCart(
+    transaction: Prisma.TransactionClient,
+    userId: number,
+    checkoutDto: CheckoutDto,
+  ): Promise<OrderWithItems> {
+    const existingOrder = await transaction.order.findUnique({
+      where: {
+        userId_idempotencyKey: {
+          userId,
+          idempotencyKey: checkoutDto.idempotencyKey,
+        },
+      },
+      include: ORDER_WITH_ITEMS,
+    });
+    if (existingOrder) {
+      return existingOrder;
     }
-  
-    const user = await this.userService.findUserByEmail(userEmail);
-    if (!user) {
-      throw new NotFoundException(`User with email ${userEmail} not found`);
+
+    const cartRows = await transaction.cartItem.findMany({
+      where: { userId },
+      include: { product: true },
+      orderBy: [{ productId: 'asc' }, { id: 'asc' }],
+    });
+    if (cartRows.length === 0) {
+      throw new BadRequestException('Cart is empty');
     }
-  
-    try {
-      await this.prisma.$transaction(async (prisma) => {
-        const products = await prisma.product.findMany({
-          where: {
-            id: {
-              in: checkoutState.productsId
-            }
-          },
-          select: {
-            id: true,
-            stock: true
-          }
-        });
-  
-        for (const orderItem of checkoutState.orderItems) {
-          const product = products.find(p => p.id === orderItem.productId);
-          if (!product) {
-            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
-          }
-          if (product.stock < orderItem.quantity) {
-            throw new Error(`Insufficient stock for product ${orderItem.productId}`);
-          }
-        }
-  
-        for (const orderItem of checkoutState.orderItems) {
-          await prisma.product.update({
-            where: { id: orderItem.productId },
-            data: {
-              stock: {
-                decrement: orderItem.quantity
-              }
-            },
-          });
-        }
-      }, {
-        maxWait: 5000,
-        timeout: 10000
+
+    const checkoutLines = this.normalizeCart(cartRows);
+    for (const line of checkoutLines) {
+      const updateResult = await transaction.product.updateMany({
+        where: {
+          id: line.productId,
+          stock: { gte: line.quantity },
+        },
+        data: {
+          stock: { decrement: line.quantity },
+        },
       });
-      
-      this.checkoutStateService.setCheckoutState(userEmail, checkoutState);
-      return checkoutState;
-    } catch (error) {
-      this.checkoutStateService.clearCheckoutState(userEmail);
-      console.error('Inventory validation error:', error);
-  
-      if (error.code === 'P2034') {
-        throw new Error('Transaction timeout. Please try again.');
+
+      if (updateResult.count !== 1) {
+        throw new ConflictException(
+          `Insufficient stock for product ${line.productId}`,
+        );
       }
-  
-      throw error;
     }
+
+    const totalPrice = checkoutLines.reduce(
+      (total, line) => total.add(line.price.mul(line.quantity)),
+      new Prisma.Decimal(0),
+    );
+
+    const order = await transaction.order.create({
+      data: {
+        userId,
+        idempotencyKey: checkoutDto.idempotencyKey,
+        status: OrderStatus.PROCESSING,
+        totalPrice,
+        shippingAddress: checkoutDto.shippingAddress,
+        productsId: checkoutLines.map((line) => line.productId),
+        orderItems: {
+          create: checkoutLines.map((line) => ({
+            productId: line.productId,
+            productName: line.productName,
+            quantity: line.quantity,
+            price: line.price,
+          })),
+        },
+      },
+      include: ORDER_WITH_ITEMS,
+    });
+
+    await transaction.cartItem.deleteMany({
+      where: {
+        userId,
+        id: { in: cartRows.map((row) => row.id) },
+      },
+    });
+
+    return order;
   }
 
-  async createOrder(checkoutDto: CheckoutDto, userEmail: string): Promise<Order> {
-    try {
-      const user = await this.userService.findUserByEmail(userEmail);
-      const checkoutState = this.checkoutStateService.getCheckoutState(userEmail);
-  
-      const order = await this.prisma.$transaction(async (prisma) => {
-        const createdOrder = await prisma.order.create({
-          data: {
-            userId: user.id,
-            status: checkoutState.status,
-            totalPrice: checkoutState.totalPrice,
-            shippingAddress: checkoutDto.shippingAddress,
-            productsId: checkoutState.productsId,
-            orderItems: {
-              create: checkoutState.orderItems.map(item => ({
-                product: {
-                  connect: { id: item.productId },
-                },
-                quantity: item.quantity,
-                price: new Decimal(item.price),
-              })),
-            },
-          },
-          include: {
-            orderItems: {
-              include: {
-                product: true,
-              },
-            },
-          },
-        });
-  
-        return createdOrder;
-      }, {
-        maxWait: 5000,
-        timeout: 10000
-      });
-  
-      await this.cartService.clearCart(userEmail);
-      this.checkoutStateService.clearCheckoutState(userEmail);
-  
-      return order;
-  
-    } catch (error) {
-      this.checkoutStateService.clearCheckoutState(userEmail);
-      console.error('Order creation error:', error);
-  
-      if (error.code === 'P2034') {
-        throw new Error('Transaction timeout. Please try again.');
+  private normalizeCart(cartRows: CartRow[]): CheckoutLine[] {
+    const lines = new Map<number, CheckoutLine>();
+
+    for (const row of cartRows) {
+      if (!Number.isSafeInteger(row.quantity) || row.quantity <= 0) {
+        throw new BadRequestException(
+          `Invalid cart quantity for product ${row.productId}`,
+        );
       }
-  
-      throw error;
+
+      const existing = lines.get(row.productId);
+      if (existing) {
+        existing.quantity += row.quantity;
+      } else {
+        lines.set(row.productId, {
+          productId: row.productId,
+          productName: row.product.name,
+          quantity: row.quantity,
+          price: row.product.price,
+        });
+      }
     }
+
+    return [...lines.values()].sort(
+      (left, right) => left.productId - right.productId,
+    );
   }
 
-  async confirmOrder(checkoutDto: CheckoutDto, userEmail: string): Promise<Order> {
-    const checkoutState = this.checkoutStateService.getCheckoutState(userEmail);
-    if (!checkoutState) {
-      throw new NotFoundException('Checkout session expired or not found. Please checkout again.');
-    }
-  
-    const user = await this.userService.findUserByEmail(userEmail);
-    if (!user) {
-      throw new NotFoundException(`User with email ${userEmail} not found`);
-    }
-  
-    try {
-      const order = await this.prisma.$transaction(async (prisma) => {
-        const products = await prisma.product.findMany({
-          where: { 
-            id: { 
-              in: checkoutState.productsId 
-            } 
-          },
-          select: {
-            id: true,
-            stock: true
-          }
-        });
-  
-        for (const orderItem of checkoutState.orderItems) {
-          const product = products.find(p => p.id === orderItem.productId);
-          if (!product) {
-            throw new NotFoundException(`Product with ID ${orderItem.productId} not found`);
-          }
-          if (product.stock < orderItem.quantity) {
-            throw new Error(`Insufficient stock for product ${orderItem.productId}`);
-          }
-        }
-  
-        const createdOrder = await prisma.order.create({
-          data: {
-            userId: user.id,
-            status: checkoutState.status,
-            totalPrice: checkoutState.totalPrice,
-            shippingAddress: checkoutDto.shippingAddress,
-            productsId: checkoutState.productsId,
-            orderItems: {
-              create: checkoutState.orderItems.map(item => ({
-                product: {
-                  connect: { id: item.productId },
-                },
-                quantity: item.quantity,
-                price: new Decimal(item.price),
-              })),
-            },
-          },
-          include: {
-            orderItems: {
-              include: {
-                product: true,
-              },
-            },
-          },
-        });
-  
-        for (const orderItem of checkoutState.orderItems) {
-          await prisma.product.update({
-            where: { id: orderItem.productId },
-            data: { 
-              stock: {
-                decrement: orderItem.quantity 
-              }
-            },
-          });
-        }
-  
-        return createdOrder;
-      }, {
-        maxWait: 5000,
-        timeout: 10000
-      });
-  
-      await this.cartService.clearCart(userEmail);
-      this.checkoutStateService.clearCheckoutState(userEmail);
-  
-      return order;
-  
-    } catch (error) {
-      this.checkoutStateService.clearCheckoutState(userEmail);
-      console.error('Order confirmation error:', error);
-      
-      if (error.code === 'P2034') {
-        throw new Error('Transaction timeout. Please try again.');
-      }
-      
-      throw error;
-    }
+  private findByIdempotencyKey(
+    userId: number,
+    idempotencyKey: string,
+  ): Promise<OrderWithItems | null> {
+    return this.prisma.order.findUnique({
+      where: {
+        userId_idempotencyKey: { userId, idempotencyKey },
+      },
+      include: ORDER_WITH_ITEMS,
+    });
+  }
+
+  private isPrismaError(error: unknown, code: string): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === code
+    );
   }
 
   async getOrderHistory(userId: number): Promise<Order[]> {
     return this.prisma.order.findMany({
       where: { userId },
       include: { orderItems: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
-  async updateOrderStatus(id: number, updateOrderDto: UpdateOrderDto): Promise<Order> {
+  async updateOrderStatus(
+    id: number,
+    updateOrderDto: UpdateOrderDto,
+  ): Promise<Order> {
     return this.prisma.order.update({
       where: { id },
       data: updateOrderDto,
@@ -291,6 +220,7 @@ export class OrdersService {
   async getAllOrders(): Promise<Order[]> {
     return this.prisma.order.findMany({
       include: { orderItems: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }
