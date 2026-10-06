@@ -19,6 +19,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:integration": "jest --config ./test/jest-integration.json --runInBand",
     "deploy": "npm run build",
     "postinstall": "prisma generate",
     "vercel-build": "npm install swagger-ui-dist && prisma generate && prisma db push --accept-data-loss && npm run build"

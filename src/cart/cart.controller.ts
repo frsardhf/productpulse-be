@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { CartService } from './cart.service';
 import { CreateCartItemDto } from './dto/create-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -19,53 +29,58 @@ export class CartController {
   @ApiResponse({ status: 400, description: 'Invalid input.' })
   @ApiResponse({ status: 404, description: 'User or product not found.' })
   @ApiResponse({ status: 500, description: 'Internal server error.' })
-  async addCartItem(@Body() createCartItemDto: CreateCartItemDto, @User() user: any) {
-    try {
-      const userEmail = user.email;
-      const { productId, quantity } = createCartItemDto;
-      return await this.cartService.addCartItem(userEmail, productId, quantity);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to add item to cart');
-    }
+  async addCartItem(
+    @Body() createCartItemDto: CreateCartItemDto,
+    @User() user: any,
+  ) {
+    const { productId, quantity } = createCartItemDto;
+    return this.cartService.addCartItem(user.id, productId, quantity);
   }
 
   @Get('my-cart')
   @UseGuards(JwtAuthGuard)
-  @ApiResponse({ status: 200, description: 'Retrieved user cart successfully.', type: [CartItemsDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved user cart successfully.',
+    type: [CartItemsDto],
+  })
   async getUserCart(@User() user: any): Promise<CartItemsDto[]> {
-    const userEmail = user.email;
-    return this.cartService.getUserCart(userEmail);
+    return this.cartService.getUserCart(user.id);
   }
 
   @Put(':productId')
   @ApiResponse({ status: 200, description: 'Cart item updated successfully.' })
   @ApiResponse({ status: 404, description: 'Cart item not found.' })
   async updateCartItem(
-    @Param('productId') productId: string,
+    @Param('productId', ParseIntPipe) productId: number,
     @Body() updateCartItemDto: UpdateCartItemDto,
-    @User() user: any
+    @User() user: any,
   ) {
-    const userEmail = user.email;
-    return this.cartService.updateCartItem(userEmail, parseInt(productId), updateCartItemDto);
+    return this.cartService.updateCartItem(
+      user.id,
+      productId,
+      updateCartItemDto,
+    );
   }
 
   @Delete(':productId')
   @ApiResponse({ status: 204, description: 'Cart item deleted successfully.' })
   @ApiResponse({ status: 404, description: 'Cart item not found.' })
-  async deleteCartItem(@Param('productId') productId: string, @User() user: any) {
-    const userEmail = user.email;
-    await this.cartService.removeCartItem(userEmail, parseInt(productId));
+  async deleteCartItem(
+    @Param('productId', ParseIntPipe) productId: number,
+    @User() user: any,
+  ) {
+    await this.cartService.removeCartItem(user.id, productId);
     return { message: 'Cart item deleted successfully' };
   }
 
   @Get('total')
-  @ApiResponse({ status: 200, description: 'Retrieved total price successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved total price successfully.',
+  })
   async getTotalPrice(@User() user: any) {
-    const userEmail = user.email;
-    const totalPrice = await this.cartService.getTotalPrice(userEmail);
+    const totalPrice = await this.cartService.getTotalPrice(user.id);
     return { totalPrice };
   }
 }
