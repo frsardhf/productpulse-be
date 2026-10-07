@@ -25,20 +25,43 @@ model User {
 }
 
 model Product {
-  id          Int         @id @default(autoincrement())
-  name        String
-  description String
-  price       Decimal
-  stock       Int
-  categoryId  Int
-  category    Category    @relation(fields: [categoryId], references: [id])
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  id                Int               @id @default(autoincrement())
+  name              String
+  description       String
+  price             Decimal
+  stock             Int
+  categoryId        Int
+  category          Category          @relation(fields: [categoryId], references: [id])
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  sourceProvider    String?
+  sourceProductId   String?
+  sourceVariantId   String?
+  sourceUrl         String?
+  sourceTitle       String?
+  sourceVendor      String?
+  sourceCategory    String?
+  sourceProductType String?
+  sourceSku         String?
+  variantLabel      String?
+  sourcePrice       Decimal?
+  sourceCurrency    String?
+  sourceAvailable   Boolean?
+  sourceUpdatedAt   DateTime?
+  sourceImportedAt  DateTime?
+  catalogueFixture  String?
+  imageUrl          String?
+  imageAlt          String?
+  imageWidth        Int?
+  imageHeight       Int?
+  imageRightsStatus ImageRightsStatus @default(PLACEHOLDER_ONLY)
+
+  @@unique([sourceProvider, sourceVariantId])
 }
 
 model Category {
   id       Int       @id @default(autoincrement())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
@@ -83,4 +106,10 @@ enum Role {
   USER
   ADMIN
   MODERATOR
+}
+
+enum ImageRightsStatus {
+  UNVERIFIED
+  PERMITTED
+  PLACEHOLDER_ONLY
 }

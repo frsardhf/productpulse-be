@@ -20,6 +20,10 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:integration": "jest --config ./test/jest-integration.json --runInBand",
+    "catalogue:import": "ts-node src/scripts/import-catalogue.ts",
+    "catalogue:import:live": "ts-node src/scripts/import-catalogue.ts --live",
+    "catalogue:reset-stock": "ts-node src/scripts/import-catalogue.ts --reset-stock",
+    "seed": "ts-node src/scripts/seed.ts",
     "deploy": "npm run build",
     "postinstall": "prisma generate",
     "vercel-build": "npm install swagger-ui-dist && prisma generate && prisma db push --accept-data-loss && npm run build"

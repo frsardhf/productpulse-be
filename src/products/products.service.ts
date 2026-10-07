@@ -10,7 +10,9 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto): Promise<ProductDto> {
-    const product = await this.prisma.product.create({ data: createProductDto });
+    const product = await this.prisma.product.create({
+      data: createProductDto,
+    });
     return this.transformToDto(product);
   }
 
@@ -19,7 +21,11 @@ export class ProductsService {
     return products.map(this.transformToDto);
   }
 
-  async findAll(page: number = 1, limit: number = 10, search?: string): Promise<ProductDto[]> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+  ): Promise<ProductDto[]> {
     const products = await this.prisma.product.findMany({
       where: {
         name: {
@@ -48,21 +54,8 @@ export class ProductsService {
           in: productIds,
         },
       },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        categoryId: true,
-        // Remove stock from here if it's not in your Prisma schema
-      },
     });
-
-    // Transform the result to match ProductDto
-    return products.map(product => ({
-      ...product,
-      stock: 0, // Add a default value for stock if it's required in ProductDto
-    }));
+    return products.map(this.transformToDto);
   }
 
   async update(id: number, data: UpdateProductDto): Promise<ProductDto> {
@@ -70,7 +63,10 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException('Product not found');
     }
-    const updatedProduct = await this.prisma.product.update({ where: { id }, data });
+    const updatedProduct = await this.prisma.product.update({
+      where: { id },
+      data,
+    });
     return this.transformToDto(updatedProduct);
   }
 
@@ -90,6 +86,18 @@ export class ProductsService {
       price: product.price,
       stock: product.stock,
       categoryId: product.categoryId,
+      sourceProvider: product.sourceProvider,
+      sourceVariantId: product.sourceVariantId,
+      sourceUrl: product.sourceUrl,
+      sourceVendor: product.sourceVendor,
+      sourceCategory: product.sourceCategory,
+      variantLabel: product.variantLabel,
+      sourcePrice: product.sourcePrice,
+      sourceCurrency: product.sourceCurrency,
+      sourceAvailable: product.sourceAvailable,
+      imageUrl: product.imageUrl,
+      imageAlt: product.imageAlt,
+      imageRightsStatus: product.imageRightsStatus,
     };
   }
 }

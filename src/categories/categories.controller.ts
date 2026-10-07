@@ -1,28 +1,16 @@
-import { Controller, Post } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { PrismaService } from '../prisma.service';
 
 @ApiTags('categories')
 @Controller('categories')
 export class CategoriesController {
-  private prisma = new PrismaClient();
+  constructor(private readonly prisma: PrismaService) {}
 
-  @Post('/seed')
-  @ApiOperation({ summary: 'Seed categories', description: 'Creates initial set of categories' })
-  @ApiResponse({ status: 201, description: 'Categories have been successfully created' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  async seedCategories() {
-    const categories = [
-      { name: 'Electronics' },
-      { name: 'Books' },
-      { name: 'Clothing' },
-    ];
-
-    const createdCategories = await this.prisma.category.createMany({
-      data: categories,
-      skipDuplicates: true,
-    });
-
-    return createdCategories;
+  @Get()
+  @ApiOperation({ summary: 'List product categories' })
+  @ApiResponse({ status: 200, description: 'Returns product categories.' })
+  findAll() {
+    return this.prisma.category.findMany({ orderBy: { name: 'asc' } });
   }
 }

@@ -1,17 +1,17 @@
 import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
-import { Prisma } from '@prisma/client';
+import { ImageRightsStatus, Prisma } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ProductDto {
   @ApiProperty({
     example: 1,
-    description: 'Unique identifier of the product'
+    description: 'Unique identifier of the product',
   })
   id: number;
 
   @ApiProperty({
     example: 'Wireless Mouse',
-    description: 'Name of the product'
+    description: 'Name of the product',
   })
   @IsNotEmpty()
   name: string;
@@ -19,14 +19,14 @@ export class ProductDto {
   @ApiProperty({
     example: 'High-performance wireless mouse with RGB lighting',
     description: 'Detailed description of the product',
-    required: false
+    required: false,
   })
   @IsOptional()
   description?: string;
 
   @ApiProperty({
     example: '29.99',
-    description: 'Price of the product'
+    description: 'Price of the product',
   })
   @IsNumber()
   @IsNotEmpty()
@@ -34,7 +34,7 @@ export class ProductDto {
 
   @ApiProperty({
     example: 100,
-    description: 'Available stock quantity'
+    description: 'Available stock quantity',
   })
   @IsNumber()
   @IsNotEmpty()
@@ -42,9 +42,45 @@ export class ProductDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Category ID of the product'
+    description: 'Category ID of the product',
   })
   @IsNotEmpty()
   @IsNumber()
   categoryId: number;
+
+  @ApiProperty({ required: false, example: 'goodsmile-us' })
+  sourceProvider?: string;
+
+  @ApiProperty({ required: false, example: '45636468441264' })
+  sourceVariantId?: string;
+
+  @ApiProperty({ required: false })
+  sourceUrl?: string;
+
+  @ApiProperty({ required: false, example: 'Good Smile Company' })
+  sourceVendor?: string;
+
+  @ApiProperty({ required: false, example: 'Plush' })
+  sourceCategory?: string;
+
+  @ApiProperty({ required: false, example: 'Kaho' })
+  variantLabel?: string;
+
+  @ApiProperty({ required: false, example: '29.99' })
+  sourcePrice?: Prisma.Decimal;
+
+  @ApiProperty({ required: false, example: 'USD' })
+  sourceCurrency?: string;
+
+  @ApiProperty({ required: false })
+  sourceAvailable?: boolean;
+
+  @ApiProperty({ required: false })
+  imageUrl?: string;
+
+  @ApiProperty({ required: false })
+  imageAlt?: string;
+
+  @ApiProperty({ enum: ImageRightsStatus })
+  imageRightsStatus: ImageRightsStatus;
 }
