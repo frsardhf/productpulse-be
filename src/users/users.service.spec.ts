@@ -1,12 +1,12 @@
 import { HttpException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma.service';
 import { CreateUserDto } from './dto/create.user.dto';
 import { UsersService } from './users.service';
 
-jest.mock('bcrypt');
+jest.mock('bcryptjs');
 
 describe('UsersService', () => {
   let usersService: UsersService;

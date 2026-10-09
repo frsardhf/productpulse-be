@@ -1,5 +1,5 @@
 {
-  "name": "ecommerce-web-backend",
+  "name": "relicase-api",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -26,8 +26,7 @@
     "seed": "ts-node src/scripts/seed.ts",
     "migrate:deploy": "prisma migrate deploy",
     "deploy": "npm run build",
-    "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && npm run build"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.6",
@@ -38,7 +37,6 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^7.4.2",
     "@prisma/client": "^5.21.1",
-    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cache-manager": "^6.1.1",
     "class-transformer": "^0.5.1",
@@ -57,7 +55,6 @@
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.4.5",
-    "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cache-manager": "^4.0.6",
     "@types/express": "^5.0.0",

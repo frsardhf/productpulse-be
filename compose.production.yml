@@ -1,0 +1,54 @@
+name: relicase
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-relicase}
+      POSTGRES_USER: ${POSTGRES_USER:-relicase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-relicase} -d ${POSTGRES_DB:-relicase}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      POSTGRES_PRISMA_URL: postgresql://${POSTGRES_USER:-relicase}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-relicase}
+      POSTGRES_URL_NON_POOLING: postgresql://${POSTGRES_USER:-relicase}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-relicase}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      target: production
+    restart: unless-stopped
+    environment:
+      POSTGRES_PRISMA_URL: postgresql://${POSTGRES_USER:-relicase}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-relicase}
+      POSTGRES_URL_NON_POOLING: postgresql://${POSTGRES_USER:-relicase}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-relicase}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env.production}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:?Set FRONTEND_ORIGINS in .env.production}
+      FRONTEND_PREVIEW_DOMAIN: ${FRONTEND_PREVIEW_DOMAIN:-relicase.pages.dev}
+      PORT: 3000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  postgres_data:
