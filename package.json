@@ -24,9 +24,10 @@
     "catalogue:import:live": "ts-node src/scripts/import-catalogue.ts --live",
     "catalogue:reset-stock": "ts-node src/scripts/import-catalogue.ts --reset-stock",
     "seed": "ts-node src/scripts/seed.ts",
+    "migrate:deploy": "prisma migrate deploy",
     "deploy": "npm run build",
     "postinstall": "prisma generate",
-    "vercel-build": "npm install swagger-ui-dist && prisma generate && prisma db push --accept-data-loss && npm run build"
+    "vercel-build": "prisma generate && npm run build"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.6",

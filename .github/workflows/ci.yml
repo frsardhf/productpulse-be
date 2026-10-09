@@ -1,0 +1,47 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - "refresh/**"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: productpulse_integration
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d productpulse_integration"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_PRISMA_URL: postgresql://postgres:postgres@localhost:5432/productpulse_integration?schema=public
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@localhost:5432/productpulse_integration?schema=public
+      JWT_SECRET_KEY: productpulse-ci-only-secret
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --runInBand
+      - run: npm run test:e2e
+      - run: npm run migrate:deploy
+      - run: npm run test:integration
+      - run: npm run build
