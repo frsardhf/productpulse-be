@@ -19,8 +19,8 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('ProductPulse')
-    .setDescription('This is the API used for the ProductPulse.')
+    .setTitle('Relicase API')
+    .setDescription('REST API for the Relicase portfolio storefront.')
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -41,7 +41,7 @@ async function bootstrap() {
     swaggerOptions: {
       persistAuthorization: true,
     },
-    customSiteTitle: 'ProductPulse API Documentation',
+    customSiteTitle: 'Relicase API Documentation',
     customJs: [
       'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js',
       'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.js',

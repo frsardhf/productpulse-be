@@ -4,7 +4,7 @@ export const swaggerCustomOptions: SwaggerCustomOptions = {
   swaggerOptions: {
     persistAuthorization: true,
   },
-  customSiteTitle: 'ProductPulse API Documentation',
+  customSiteTitle: 'Relicase API Documentation',
   customfavIcon: '/api/favicon-32x32.png',
   customJs: [
     '/api/swagger-ui-bundle.js',

@@ -1,7 +1,6 @@
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 const DEFAULT_FRONTEND_ORIGINS = [
-  'https://productpulse-six.vercel.app',
   'http://localhost:3001',
   'http://127.0.0.1:3001',
 ];
@@ -44,7 +43,7 @@ function previewDomain(environment: NodeJS.ProcessEnv): string | null {
     !value.endsWith('.pages.dev')
   ) {
     throw new Error(
-      'FRONTEND_PREVIEW_DOMAIN must be a Pages hostname such as productpulse.pages.dev',
+      'FRONTEND_PREVIEW_DOMAIN must be a Pages hostname such as relicase.pages.dev',
     );
   }
   return value;

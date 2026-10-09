@@ -3,19 +3,16 @@ import { isAllowedFrontendOrigin } from './cors';
 describe('frontend CORS origin policy', () => {
   const environment = {
     FRONTEND_ORIGINS:
-      'https://shop.example.com, https://productpulse.pages.dev/',
-    FRONTEND_PREVIEW_DOMAIN: 'productpulse.pages.dev',
+      'https://shop.example.com, https://relicase.pages.dev/',
+    FRONTEND_PREVIEW_DOMAIN: 'relicase.pages.dev',
   };
 
-  it('allows configured production, legacy, and local origins', () => {
+  it('allows configured production and local origins', () => {
     expect(
       isAllowedFrontendOrigin('https://shop.example.com', environment),
     ).toBe(true);
     expect(
-      isAllowedFrontendOrigin(
-        'https://productpulse-six.vercel.app',
-        environment,
-      ),
+      isAllowedFrontendOrigin('https://relicase.pages.dev', environment),
     ).toBe(true);
     expect(isAllowedFrontendOrigin('http://localhost:3001', environment)).toBe(
       true,
@@ -25,13 +22,13 @@ describe('frontend CORS origin policy', () => {
   it('allows HTTPS Cloudflare Pages preview subdomains', () => {
     expect(
       isAllowedFrontendOrigin(
-        'https://a1b2c3.productpulse.pages.dev',
+        'https://a1b2c3.relicase.pages.dev',
         environment,
       ),
     ).toBe(true);
     expect(
       isAllowedFrontendOrigin(
-        'https://feature-checkout.productpulse.pages.dev',
+        'https://feature-checkout.relicase.pages.dev',
         environment,
       ),
     ).toBe(true);
@@ -40,13 +37,13 @@ describe('frontend CORS origin policy', () => {
   it('rejects insecure, lookalike, and unrelated origins', () => {
     expect(
       isAllowedFrontendOrigin(
-        'http://preview.productpulse.pages.dev',
+        'http://preview.relicase.pages.dev',
         environment,
       ),
     ).toBe(false);
     expect(
       isAllowedFrontendOrigin(
-        'https://productpulse.pages.dev.evil.example',
+        'https://relicase.pages.dev.evil.example',
         environment,
       ),
     ).toBe(false);
