@@ -1,99 +1,130 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Relicase API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The Relicase API is a NestJS and Express REST service backed by PostgreSQL through Prisma. It provides JWT authentication, catalogue and category management, persistent carts, atomic simulated checkout, order history, and role-protected administration for the [Relicase storefront](https://relicase.pages.dev).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- Live API: [api.relicase.eriduops.com](https://api.relicase.eriduops.com)
+- Swagger UI: [api.relicase.eriduops.com/api](https://api.relicase.eriduops.com/api)
+- Frontend repository: [github.com/frsardhf/relicase](https://github.com/frsardhf/relicase)
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The service covers the original e-commerce assignment while treating checkout as a clearly disclosed portfolio simulation:
+
+- Signup and login with hashed passwords and signed JWTs
+- User-owned profile, cart, and order access
+- Guest product browsing with pagination and keyword search
+- Admin-only product, category, order-status, user, and role operations
+- Server-calculated totals and historical product snapshots on order items
+- Transactional stock updates and idempotent order confirmation
+- Validated request DTOs with unknown fields rejected globally
+- Exact production/development CORS origins plus controlled Cloudflare Pages previews
+
+No payment provider is connected. Use fictitious profile and checkout details in the public demo.
 
 ## Project setup
 
+Requirements:
+
+- Node.js 20
+- npm
+- PostgreSQL 16
+
+Install dependencies and configure the application:
+
 ```bash
-$ npm install
+npm ci
+cp .env.example .env
+```
+
+Set both Prisma URLs to your PostgreSQL database, replace `JWT_SECRET_KEY`, and list the permitted frontend origins. Then apply migrations and load the reproducible catalogue fixture:
+
+```bash
+npm run migrate:deploy
+npm run seed
 ```
 
 ## Compile and run the project
 
 ```bash
-# development
-$ npm run start
-
 # watch mode
-$ npm run start:dev
+npm run start:dev
 
-# production mode
-$ npm run start:prod
+# production build
+npm run build
+npm run start:prod
 ```
+
+The API listens on port `3000` by default. Swagger is served at `/api`.
 
 ## Run tests
 
 ```bash
-# unit tests
-$ npm run test
+# lint and unit tests
+npm run lint
+npm test -- --runInBand
 
-# e2e tests
-$ npm run test:e2e
+# HTTP authorization and workflow tests
+npm run test:e2e
 
-# test coverage
-$ npm run test:cov
+# PostgreSQL-backed migration, catalogue, stock, and checkout tests
+npm run test:integration
+
+# production compile
+npm run build
 ```
+
+Integration tests require a disposable PostgreSQL database in `POSTGRES_PRISMA_URL`. GitHub Actions provisions PostgreSQL 16, applies the migrations, and runs all of these checks.
+
+## Catalogue data
+
+The checked-in fixture contains 24 Blue Archive merchandise variants selected from the public Good Smile US collection feed on 2026-10-07. It records the original product and variant identifiers, USD prices, vendor/category metadata, source URLs, and source update timestamps.
+
+```bash
+# Import the checked-in snapshot without overwriting local stock/admin edits
+npm run catalogue:import
+
+# Fetch and normalize the current upstream feed
+npm run catalogue:import:live
+
+# Deliberately reset deterministic demo stock while importing
+npm run catalogue:reset-stock
+```
+
+Imports are idempotent by source provider and variant ID. Upstream failures do not replace the last usable local catalogue. Source image rights were not verified, so the storefront uses local category artwork instead of republishing source images.
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Production runs on a VPS as two private Docker services plus a one-shot migration service:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- PostgreSQL 16 persists to the `postgres_data` volume and is not published to the host.
+- The API runs as the non-root Node user and binds only to `127.0.0.1:3000`.
+- Nginx terminates HTTPS for `api.relicase.eriduops.com` and proxies to the local API port.
+
+Create the production environment file, using unique random values for the database password and JWT secret:
 
 ```bash
-$ npm install -g mau
-$ mau deploy
+cp .env.production.example .env.production
+docker compose --env-file .env.production -f compose.production.yml up -d --build
+docker compose --env-file .env.production -f compose.production.yml run --rm migrate npm run seed
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The Compose startup order waits for PostgreSQL, applies all Prisma migrations, and starts the API only after migration succeeds. `deploy/nginx.conf` is the versioned reverse-proxy template. Keep `.env.production` only on the server.
+
+Useful operational checks:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml ps
+docker compose --env-file .env.production -f compose.production.yml logs --tail=100 api
+curl -fsS https://api.relicase.eriduops.com/products?page=1\&limit=3
+```
 
 ## Resources
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- [NestJS documentation](https://docs.nestjs.com)
+- [Prisma migrations](https://www.prisma.io/docs/orm/prisma-migrate)
+- [Cloudflare Pages frontend](https://relicase.pages.dev)
+- [Good Smile US source collection](https://www.goodsmileus.com/collections/blue-archive)
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This repository was created as a candidate-evaluation and portfolio project. Third-party product names and metadata remain the property of their respective owners.
