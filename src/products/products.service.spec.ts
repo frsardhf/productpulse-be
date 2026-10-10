@@ -10,6 +10,7 @@ describe('ProductsService', () => {
     product: { 
       create: jest.Mock; 
       findMany: jest.Mock; 
+      findFirst: jest.Mock;
       findUnique: jest.Mock; 
       update: jest.Mock; 
       delete: jest.Mock } 
@@ -20,6 +21,7 @@ describe('ProductsService', () => {
       product: {
         create: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -82,11 +84,13 @@ describe('ProductsService', () => {
     it('should return a single product', async () => {
       const productId = 1;
       const expectedProduct = { id: productId, name: 'Product 1' };
-      mockPrismaService.product.findUnique.mockResolvedValue(expectedProduct);
+      mockPrismaService.product.findFirst.mockResolvedValue(expectedProduct);
 
       const result = await productsService.findOne(productId);
       expect(result).toEqual(expectedProduct);
-      expect(mockPrismaService.product.findUnique).toHaveBeenCalledWith({ where: { id: productId } });
+      expect(mockPrismaService.product.findFirst).toHaveBeenCalledWith({
+        where: { id: productId, catalogueActive: true },
+      });
     });
   });
 
