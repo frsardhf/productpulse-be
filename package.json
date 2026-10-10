@@ -22,6 +22,7 @@
     "test:integration": "jest --config ./test/jest-integration.json --runInBand",
     "catalogue:import": "ts-node src/scripts/import-catalogue.ts",
     "catalogue:import:live": "ts-node src/scripts/import-catalogue.ts --live",
+    "catalogue:replace": "ts-node src/scripts/import-catalogue.ts --replace",
     "catalogue:reset-stock": "ts-node src/scripts/import-catalogue.ts --reset-stock",
     "seed": "ts-node src/scripts/seed.ts",
     "migrate:deploy": "prisma migrate deploy",

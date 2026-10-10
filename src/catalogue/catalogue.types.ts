@@ -1,11 +1,13 @@
 import { ImageRightsStatus } from '@prisma/client';
 
-export const GOODSMILE_PROVIDER = 'goodsmile-us';
-export const GOODSMILE_COLLECTION_URL =
-  'https://www.goodsmileus.com/collections/blue-archive';
-export const GOODSMILE_FEED_URL = `${GOODSMILE_COLLECTION_URL}/products.json?limit=100`;
-export const GOODSMILE_CURRENCY_URL = 'https://www.goodsmileus.com/cart.js';
-export const GOODSMILE_FIXTURE_NAME = 'goodsmile-blue-archive.v1';
+export const MET_PROVIDER = 'met-open-access';
+export const MET_COLLECTION_URL = 'https://www.metmuseum.org/art/collection';
+export const MET_API_BASE_URL =
+  'https://collectionapi.metmuseum.org/public/collection/v1';
+export const MET_FIXTURE_NAME = 'met-open-access-prints.v1';
+export const MET_LICENSE_NAME = 'CC0 1.0';
+export const MET_LICENSE_URL =
+  'https://creativecommons.org/publicdomain/zero/1.0/';
 
 export interface CatalogueImage {
   url: string;
@@ -26,28 +28,38 @@ export interface CatalogueItem {
   variantLabel: string;
   sku: string;
   description: string;
-  sourcePrice: string;
+  demoPrice: string;
   sourceCurrency: string;
   sourceAvailable: boolean;
   sourceUpdatedAt: string;
-  image: CatalogueImage | null;
+  sourceAttribution: string;
+  image: CatalogueImage;
 }
 
 export interface CatalogueSnapshot {
-  schemaVersion: 1;
-  provider: typeof GOODSMILE_PROVIDER;
+  schemaVersion: 2;
+  provider: typeof MET_PROVIDER;
   collectionUrl: string;
   feedUrl: string;
   currency: string;
   capturedAt: string;
   imageRightsStatus: ImageRightsStatus;
+  licenseName: string;
+  licenseUrl: string;
   items: CatalogueItem[];
 }
 
 export interface CatalogueImportResult {
   created: number;
   refreshed: number;
+  archived: number;
   total: number;
   provider: string;
   fixture: string;
+}
+
+export interface CuratedMetObject {
+  objectId: number;
+  category: string;
+  demoPrice: string;
 }

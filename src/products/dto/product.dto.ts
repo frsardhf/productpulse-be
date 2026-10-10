@@ -48,19 +48,19 @@ export class ProductDto {
   @IsNumber()
   categoryId: number;
 
-  @ApiProperty({ required: false, example: 'goodsmile-us' })
+  @ApiProperty({ required: false, example: 'met-open-access' })
   sourceProvider?: string;
 
-  @ApiProperty({ required: false, example: '45636468441264' })
+  @ApiProperty({ required: false, example: '55919' })
   sourceVariantId?: string;
 
   @ApiProperty({ required: false })
   sourceUrl?: string;
 
-  @ApiProperty({ required: false, example: 'Good Smile Company' })
+  @ApiProperty({ required: false, example: 'Tsukioka Yoshitoshi' })
   sourceVendor?: string;
 
-  @ApiProperty({ required: false, example: 'Plush' })
+  @ApiProperty({ required: false, example: 'Cats' })
   sourceCategory?: string;
 
   @ApiProperty({ required: false, example: 'Kaho' })
@@ -83,4 +83,13 @@ export class ProductDto {
 
   @ApiProperty({ enum: ImageRightsStatus })
   imageRightsStatus: ImageRightsStatus;
+
+  @ApiProperty({ required: false, example: 'CC0 1.0' })
+  sourceLicense?: string;
+
+  @ApiProperty({ required: false })
+  sourceAttribution?: string;
+
+  @ApiProperty({ example: true })
+  catalogueActive: boolean;
 }

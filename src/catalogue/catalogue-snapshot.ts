@@ -5,13 +5,15 @@ import {
   CatalogueImage,
   CatalogueItem,
   CatalogueSnapshot,
-  GOODSMILE_FIXTURE_NAME,
-  GOODSMILE_PROVIDER,
+  MET_FIXTURE_NAME,
+  MET_LICENSE_NAME,
+  MET_LICENSE_URL,
+  MET_PROVIDER,
 } from './catalogue.types';
 
 const fixturePath = resolve(
   process.cwd(),
-  'src/catalogue/fixtures/goodsmile-blue-archive.v1.json',
+  'src/catalogue/fixtures/met-open-access-prints.v1.json',
 );
 
 export async function loadCatalogueFixture(): Promise<CatalogueSnapshot> {
@@ -21,15 +23,32 @@ export async function loadCatalogueFixture(): Promise<CatalogueSnapshot> {
 
 export function parseCatalogueSnapshot(value: unknown): CatalogueSnapshot {
   const snapshot = asRecord(value, 'Catalogue snapshot');
-  if (snapshot.schemaVersion !== 1) {
+  if (snapshot.schemaVersion !== 2) {
     throw new Error('Unsupported catalogue snapshot version');
   }
-  if (snapshot.provider !== GOODSMILE_PROVIDER) {
+  if (snapshot.provider !== MET_PROVIDER) {
     throw new Error('Unsupported catalogue provider');
   }
 
   const currency = requiredCurrency(snapshot.currency, 'Snapshot currency');
   const capturedAt = requiredDate(snapshot.capturedAt, 'Snapshot capturedAt');
+  const imageRightsStatus = requiredRightsStatus(snapshot.imageRightsStatus);
+  if (imageRightsStatus !== ImageRightsStatus.PERMITTED) {
+    throw new Error('Met Open Access images must be marked PERMITTED');
+  }
+  const licenseName = requiredText(
+    snapshot.licenseName,
+    'Snapshot license name',
+    80,
+  );
+  const licenseUrl = requiredHttpsUrl(
+    snapshot.licenseUrl,
+    'Snapshot license URL',
+  );
+  if (licenseName !== MET_LICENSE_NAME || licenseUrl !== MET_LICENSE_URL) {
+    throw new Error('Unsupported catalogue image license');
+  }
+
   const items = requiredArray(snapshot.items, 'Snapshot items').map(
     parseCatalogueItem,
   );
@@ -40,33 +59,35 @@ export function parseCatalogueSnapshot(value: unknown): CatalogueSnapshot {
   const variantIds = new Set<string>();
   for (const item of items) {
     if (variantIds.has(item.sourceVariantId)) {
-      throw new Error(`Duplicate source variant ${item.sourceVariantId}`);
+      throw new Error(`Duplicate source object ${item.sourceVariantId}`);
     }
     if (item.sourceCurrency !== currency) {
       throw new Error(
-        `Currency mismatch for source variant ${item.sourceVariantId}`,
+        `Currency mismatch for source object ${item.sourceVariantId}`,
       );
     }
     variantIds.add(item.sourceVariantId);
   }
 
   return {
-    schemaVersion: 1,
-    provider: GOODSMILE_PROVIDER,
+    schemaVersion: 2,
+    provider: MET_PROVIDER,
     collectionUrl: requiredHttpsUrl(
       snapshot.collectionUrl,
-      'Snapshot collectionUrl',
+      'Snapshot collection URL',
     ),
-    feedUrl: requiredHttpsUrl(snapshot.feedUrl, 'Snapshot feedUrl'),
+    feedUrl: requiredHttpsUrl(snapshot.feedUrl, 'Snapshot feed URL'),
     currency,
     capturedAt,
-    imageRightsStatus: requiredRightsStatus(snapshot.imageRightsStatus),
+    imageRightsStatus,
+    licenseName,
+    licenseUrl,
     items,
   };
 }
 
 export function fixtureLabel(snapshot: CatalogueSnapshot): string {
-  return `${GOODSMILE_FIXTURE_NAME}@${snapshot.capturedAt}`;
+  return `${MET_FIXTURE_NAME}@${snapshot.capturedAt}`;
 }
 
 function parseCatalogueItem(value: unknown, index: number): CatalogueItem {
@@ -75,7 +96,10 @@ function parseCatalogueItem(value: unknown, index: number): CatalogueItem {
     item.sourceVariantId,
     `Catalogue item ${index} sourceVariantId`,
   );
-  const image = item.image === null ? null : parseImage(item.image, index);
+  const image = parseImage(item.image, index);
+  if (image.rightsStatus !== ImageRightsStatus.PERMITTED) {
+    throw new Error(`Catalogue item ${index} image must be permitted`);
+  }
 
   return {
     sourceProductId: requiredId(
@@ -85,7 +109,7 @@ function parseCatalogueItem(value: unknown, index: number): CatalogueItem {
     sourceVariantId,
     sourceUrl: requiredHttpsUrl(
       item.sourceUrl,
-      `Catalogue item ${index} sourceUrl`,
+      `Catalogue item ${index} source URL`,
     ),
     originalTitle: requiredText(
       item.originalTitle,
@@ -103,16 +127,16 @@ function parseCatalogueItem(value: unknown, index: number): CatalogueItem {
       `Catalogue item ${index} sourceProductType`,
       100,
     ),
-    variantLabel: requiredText(
-      item.variantLabel,
-      `Catalogue item ${index} variantLabel`,
-      160,
-    ),
+    variantLabel: optionalText(item.variantLabel, 160),
     sku: optionalText(item.sku, 100),
-    description: optionalText(item.description, 600),
-    sourcePrice: requiredPrice(
-      item.sourcePrice,
-      `Catalogue item ${index} sourcePrice`,
+    description: requiredText(
+      item.description,
+      `Catalogue item ${index} description`,
+      600,
+    ),
+    demoPrice: requiredPrice(
+      item.demoPrice,
+      `Catalogue item ${index} demoPrice`,
     ),
     sourceCurrency: requiredCurrency(
       item.sourceCurrency,
@@ -126,6 +150,11 @@ function parseCatalogueItem(value: unknown, index: number): CatalogueItem {
       item.sourceUpdatedAt,
       `Catalogue item ${index} sourceUpdatedAt`,
     ),
+    sourceAttribution: requiredText(
+      item.sourceAttribution,
+      `Catalogue item ${index} sourceAttribution`,
+      500,
+    ),
     image,
   };
 }
@@ -134,7 +163,7 @@ function parseImage(value: unknown, itemIndex: number): CatalogueImage {
   const image = asRecord(value, `Catalogue item ${itemIndex} image`);
   return {
     url: requiredHttpsUrl(image.url, `Catalogue item ${itemIndex} image URL`),
-    alt: optionalText(image.alt, 240),
+    alt: requiredText(image.alt, `Catalogue item ${itemIndex} image alt`, 240),
     width: optionalPositiveInteger(image.width),
     height: optionalPositiveInteger(image.height),
     rightsStatus: requiredRightsStatus(image.rightsStatus),

@@ -55,8 +55,12 @@ model Product {
   imageWidth        Int?
   imageHeight       Int?
   imageRightsStatus ImageRightsStatus @default(PLACEHOLDER_ONLY)
+  sourceLicense     String?
+  sourceAttribution String?
+  catalogueActive   Boolean           @default(true)
 
   @@unique([sourceProvider, sourceVariantId])
+  @@index([catalogueActive])
 }
 
 model Category {

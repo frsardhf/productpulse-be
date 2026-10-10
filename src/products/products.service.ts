@@ -17,7 +17,9 @@ export class ProductsService {
   }
 
   async findAllProducts(): Promise<ProductDto[]> {
-    const products = await this.prisma.product.findMany();
+    const products = await this.prisma.product.findMany({
+      where: { catalogueActive: true },
+    });
     return products.map(this.transformToDto);
   }
 
@@ -28,6 +30,7 @@ export class ProductsService {
   ): Promise<ProductDto[]> {
     const products = await this.prisma.product.findMany({
       where: {
+        catalogueActive: true,
         name: {
           contains: search,
           mode: 'insensitive', // Case insensitive search
@@ -98,6 +101,9 @@ export class ProductsService {
       imageUrl: product.imageUrl,
       imageAlt: product.imageAlt,
       imageRightsStatus: product.imageRightsStatus,
+      sourceLicense: product.sourceLicense,
+      sourceAttribution: product.sourceAttribution,
+      catalogueActive: product.catalogueActive,
     };
   }
 }

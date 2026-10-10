@@ -3,12 +3,16 @@ import {
   CatalogueImportResult,
   CatalogueItem,
   CatalogueSnapshot,
-  GOODSMILE_FIXTURE_NAME,
-  GOODSMILE_PROVIDER,
+  MET_FIXTURE_NAME,
+  MET_PROVIDER,
 } from './catalogue.types';
 import { fixtureLabel, parseCatalogueSnapshot } from './catalogue-snapshot';
 
 const DEMO_STOCK_LEVELS = [0, 2, 4, 8, 12, 16] as const;
+
+interface ImportOptions {
+  archiveOtherProviders?: boolean;
+}
 
 export class CatalogueImporter {
   constructor(
@@ -16,7 +20,10 @@ export class CatalogueImporter {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async importSnapshot(value: unknown): Promise<CatalogueImportResult> {
+  async importSnapshot(
+    value: unknown,
+    options: ImportOptions = {},
+  ): Promise<CatalogueImportResult> {
     const snapshot = parseCatalogueSnapshot(value);
     const importedAt = this.now();
     const fixture = fixtureLabel(snapshot);
@@ -25,6 +32,45 @@ export class CatalogueImporter {
       async (transaction) => {
         let created = 0;
         let refreshed = 0;
+        let archived = 0;
+
+        if (options.archiveOtherProviders) {
+          const activeImportedProducts = await transaction.product.findMany({
+            where: {
+              catalogueActive: true,
+              sourceProvider: { not: null },
+            },
+            select: {
+              id: true,
+              sourceProvider: true,
+              sourceVariantId: true,
+            },
+          });
+          const importedKeys = new Set(
+            snapshot.items.map(
+              (item) => `${snapshot.provider}:${item.sourceVariantId}`,
+            ),
+          );
+          const archivedProductIds = activeImportedProducts
+            .filter(
+              (product) =>
+                !importedKeys.has(
+                  `${product.sourceProvider}:${product.sourceVariantId}`,
+                ),
+            )
+            .map(({ id }) => id);
+
+          if (archivedProductIds.length > 0) {
+            await transaction.cartItem.deleteMany({
+              where: { productId: { in: archivedProductIds } },
+            });
+            const archiveResult = await transaction.product.updateMany({
+              where: { id: { in: archivedProductIds } },
+              data: { catalogueActive: false, stock: 0 },
+            });
+            archived = archiveResult.count;
+          }
+        }
 
         for (const item of snapshot.items) {
           const existing = await transaction.product.findUnique({
@@ -61,8 +107,8 @@ export class CatalogueImporter {
             data: {
               ...sourceData,
               name: localProductName(item),
-              description: item.description || item.originalTitle,
-              price: new Prisma.Decimal(item.sourcePrice),
+              description: item.description,
+              price: new Prisma.Decimal(item.demoPrice),
               stock: demoStockFor(item.sourceVariantId),
               categoryId: category.id,
             },
@@ -73,6 +119,7 @@ export class CatalogueImporter {
         return {
           created,
           refreshed,
+          archived,
           total: snapshot.items.length,
           provider: snapshot.provider,
           fixture,
@@ -82,15 +129,15 @@ export class CatalogueImporter {
     );
   }
 
-  async resetDemoStock(provider: string = GOODSMILE_PROVIDER): Promise<number> {
-    if (provider !== GOODSMILE_PROVIDER) {
+  async resetDemoStock(provider: string = MET_PROVIDER): Promise<number> {
+    if (provider !== MET_PROVIDER) {
       throw new Error(
-        'Demo stock reset is limited to the Good Smile US catalogue',
+        'Demo stock reset is limited to the active Met catalogue',
       );
     }
 
     const products = await this.prisma.product.findMany({
-      where: { sourceProvider: provider },
+      where: { sourceProvider: provider, catalogueActive: true },
       select: { id: true, sourceVariantId: true },
     });
 
@@ -98,7 +145,7 @@ export class CatalogueImporter {
       products.map((product) => {
         if (!product.sourceVariantId) {
           throw new Error(
-            `Imported product ${product.id} has no source variant ID`,
+            `Imported product ${product.id} has no source object ID`,
           );
         }
         return this.prisma.product.update({
@@ -127,44 +174,43 @@ export class CatalogueImporter {
       sourceCategory: item.sourceCategory,
       sourceProductType: item.sourceProductType,
       sourceSku: item.sku || null,
-      variantLabel:
-        item.variantLabel === 'Default Title' ? null : item.variantLabel,
-      sourcePrice: new Prisma.Decimal(item.sourcePrice),
+      variantLabel: item.variantLabel || null,
+      sourcePrice: null,
       sourceCurrency: item.sourceCurrency,
       sourceAvailable: item.sourceAvailable,
       sourceUpdatedAt: new Date(item.sourceUpdatedAt),
       sourceImportedAt: importedAt,
+      sourceLicense: snapshot.licenseName,
+      sourceAttribution: item.sourceAttribution,
       catalogueFixture: fixture,
-      imageUrl: item.image?.url ?? null,
-      imageAlt: item.image?.alt || null,
-      imageWidth: item.image?.width ?? null,
-      imageHeight: item.image?.height ?? null,
-      imageRightsStatus:
-        item.image?.rightsStatus ?? ImageRightsStatus.PLACEHOLDER_ONLY,
+      catalogueActive: true,
+      imageUrl: item.image.url,
+      imageAlt: item.image.alt,
+      imageWidth: item.image.width,
+      imageHeight: item.image.height,
+      imageRightsStatus: ImageRightsStatus.PERMITTED,
     };
   }
 }
 
 export function demoStockFor(sourceVariantId: string): number {
   if (!/^\d+$/.test(sourceVariantId)) {
-    throw new Error('Source variant ID must contain digits only');
+    throw new Error('Source object ID must contain digits only');
   }
   const digitSum = [...sourceVariantId].reduce(
     (total, digit) => total + Number(digit),
     0,
   );
-  const index = digitSum % DEMO_STOCK_LEVELS.length;
-  return DEMO_STOCK_LEVELS[index];
+  return DEMO_STOCK_LEVELS[digitSum % DEMO_STOCK_LEVELS.length];
 }
 
 export function localProductName(item: CatalogueItem): string {
-  const baseName = item.originalTitle
-    .replace(/^Blue Archive\s*-\s*/i, '')
-    .trim();
-  if (!item.variantLabel || item.variantLabel === 'Default Title') {
-    return baseName;
+  const title = item.originalTitle.trim();
+  const artist = item.vendor.trim();
+  if (/^(landscape|cat)$/i.test(title) && artist !== 'Unidentified artist') {
+    return `${title} by ${artist}`;
   }
-  return `${baseName}: ${item.variantLabel}`;
+  return title;
 }
 
-export const catalogueFixtureName = GOODSMILE_FIXTURE_NAME;
+export const catalogueFixtureName = MET_FIXTURE_NAME;

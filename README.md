@@ -77,7 +77,7 @@ Integration tests require a disposable PostgreSQL database in `POSTGRES_PRISMA_U
 
 ## Catalogue data
 
-The checked-in fixture contains 24 Blue Archive merchandise variants selected from the public Good Smile US collection feed on 2026-10-07. It records the original product and variant identifiers, USD prices, vendor/category metadata, source URLs, and source update timestamps.
+The checked-in fixture contains 24 public-domain East Asian artworks selected from The Metropolitan Museum of Art Open Access collection. It records stable Met object IDs, artists, categories, source URLs, CC0 attribution, and permitted image URLs. Relicase adds its own simulated print prices and inventory.
 
 ```bash
 # Import the checked-in snapshot without overwriting local stock/admin edits
@@ -86,11 +86,14 @@ npm run catalogue:import
 # Fetch and normalize the current upstream feed
 npm run catalogue:import:live
 
-# Deliberately reset deterministic demo stock while importing
+# Replace another imported catalogue, archiving old products safely
+npm run catalogue:replace
+
+# Deliberately reset deterministic demo stock
 npm run catalogue:reset-stock
 ```
 
-Imports are idempotent by source provider and variant ID. Upstream failures do not replace the last usable local catalogue. Source image rights were not verified, so the storefront uses local category artwork instead of republishing source images.
+Imports are idempotent by source provider and object ID. Upstream failures do not replace the last usable local catalogue. Replacement archives old provider rows and removes them from active carts while retaining products referenced by historical orders. The displayed images are attached to public-domain objects in The Met Open Access API and are recorded as CC0.
 
 ## Deployment
 
@@ -105,7 +108,7 @@ Create the production environment file, using unique random values for the datab
 ```bash
 cp .env.production.example .env.production
 docker compose --env-file .env.production -f compose.production.yml up -d --build
-docker compose --env-file .env.production -f compose.production.yml run --rm migrate npm run seed
+docker compose --env-file .env.production -f compose.production.yml run --rm migrate npm run catalogue:replace
 ```
 
 The Compose startup order waits for PostgreSQL, applies all Prisma migrations, and starts the API only after migration succeeds. `deploy/nginx.conf` is the versioned reverse-proxy template. Keep `.env.production` only on the server.
@@ -123,8 +126,9 @@ curl -fsS https://api.relicase.eriduops.com/products?page=1\&limit=3
 - [NestJS documentation](https://docs.nestjs.com)
 - [Prisma migrations](https://www.prisma.io/docs/orm/prisma-migrate)
 - [Cloudflare Pages frontend](https://relicase.pages.dev)
-- [Good Smile US source collection](https://www.goodsmileus.com/collections/blue-archive)
+- [The Met Open Access API](https://metmuseum.github.io/)
+- [Creative Commons CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 
 ## License
 
-This repository was created as a candidate-evaluation and portfolio project. Third-party product names and metadata remain the property of their respective owners.
+This repository was created as a candidate-evaluation and portfolio project. Catalogue artwork is sourced from public-domain objects provided through The Met Open Access program under CC0. Relicase product framing, prices, inventory, and transactions are simulations.
